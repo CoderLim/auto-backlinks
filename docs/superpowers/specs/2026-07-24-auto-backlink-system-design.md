@@ -50,7 +50,7 @@
 - 数据模型需要预留目录站、产品提交站、论坛和社区等类型，但一期不实现对应执行器。
 - 现有 `link_category`、`type` 和 `link_type` 可能不准确，不能作为 POC 的硬过滤条件。
 - 页面实际类型和链接能力在运行时重新检测。
-- POC 对两个含义模糊的旧字段做一对一改名，不进一步拆字段：`type` 改为 `placement_method`，`link_type` 改为 `link_rel`。
+- POC 对两个含义模糊的旧字段做一对一改名，不进一步拆字段：`type` 改为新的 `link_type`，旧的 `link_type` 改为 `link_rel`。
 
 ### 3.3 Campaign
 
@@ -124,7 +124,7 @@ POC 的首要目标是验证评论链路并纠正候选数据：页面是否可�
 1. URL 包含非根路径。
 2. 状态不是 `inaccessible` 或 `unsubmittable`。
 3. 当前目标网站不存在相同 `(targetSite, backlinkId)` 的最终记录。
-4. 不根据现有 `link_category`、`type` 或 `link_type` 排除候选；这两个旧字段在 POC 数据迁移后分别使用 `placement_method` 和 `link_rel`。
+4. 不根据现有 `link_category`、`type` 或 `link_type` 排除候选；POC 数据迁移后，原 `type` 使用新的 `link_type`，原 `link_type` 使用 `link_rel`。
 
 按上述规则，当前约有 255 条非根路径且未被标记为不可用的候选，其中 45 条渠道有历史记录、210 条没有历史记录，足以组成 POC 的混合样本。
 
@@ -153,20 +153,21 @@ POC 的首要目标是验证评论链路并纠正候选数据：页面是否可�
 - `comment_body/markdown`：正文接受 Markdown。
 - `comment_body/bbcode`：正文接受 BBCode。
 
-扩展通过已有评论中的站外 Anchor、作者区域、表单字段和编辑器提示推断能力。`link_rel` 记录实际 Anchor 的 `nofollow`、`ugc`、`sponsored` 或 follow 情况。`ugc` 表示链接来自评论、论坛帖子等用户生成内容，它可以与 `nofollow` 同时存在。渲染后的 Anchor 不能单独证明原输入是 HTML、Markdown 还是 BBCode。
+扩展通过已有评论中的站外 Anchor、作者区域、表单字段和编辑器提示推断能力。`link_rel` 只保存业务需要的 `Dofollow`、`Nofollow` 或 `Unknown`：检测到 `nofollow` 时写入 `Nofollow`，明确没有 `nofollow` 时写入 `Dofollow`，无法检查时写入 `Unknown`。POC 忽略 `ugc` 和 `sponsored` 等其他 `rel` token。渲染后的 Anchor 不能单独证明原输入是 HTML、Markdown 还是 BBCode。
 
 POC 直接纠正 LinkMaster 现有候选字段，不长期维护一套“原值”和一套“实测值”：
 
 - Item 执行时先把检测结果保存在 Campaign 文件中，避免每个步骤同时写多个 JSON 文件。
-- Campaign 结束时批量覆盖 `backlinks.json`：`topicCategory` 写入 `link_category`，实际链接放置方式写入 `placement_method`，实测 Anchor `rel` 写入 `link_rel`，并更新检查状态和时间。
+- Campaign 结束时批量覆盖 `backlinks.json`：`topicCategory` 写入 `link_category`，实际链接方式写入新的 `link_type`，Dofollow/Nofollow 检测结果写入 `link_rel`，并更新检查状态和时间。
 - 只覆盖本次得到明确结果的字段；`unknown`、页面未加载成功或没有足够证据的字段保持原值。
 - Campaign Item 保存每次纠正的字段、修改前值和修改后值，Git 提交历史提供额外追溯能力。
 - 页面行业分类使用固定枚举；分类器无法给出明确类别时不覆盖 `link_category`。
 
 字段迁移只改变名称和纠正值，不增加更多持久化字段：
 
-- `type` -> `placement_method`，表示链接的放置方式，例如 `UserName Link`、`Text Link`、`HTML Link`、`Markdown Link` 或 `BBCode Link`。
-- `link_type` -> `link_rel`，表示最终链接关系，例如 `Follow`、`Nofollow`、`UGC`、`UGC Nofollow` 或 `Unknown`。
+- `type` -> `link_type`，表示链接方式，例如 `UserName Link`、`Text Link`、`HTML Link`、`Markdown Link` 或 `BBCode Link`。
+- 原 `link_type` -> `link_rel`，只允许 `Dofollow`、`Nofollow` 或 `Unknown`。
+- 迁移必须在内存中从旧对象同时读取两个字段，再生成新对象，不能先把 `type` 改名为 `link_type` 后覆盖旧值。
 
 ### 3.10 评论生成质量门槛
 
