@@ -32,7 +32,7 @@ POC 只按具体候选页面建模：
 - `(targetSite, backlinkId)` 唯一确定某个目标网站是否已经向该页面提交，用于防止重复。
 - POC 不提取 `channelKey`，也不把同一域名的不同 URL 合并或共享成功经验。
 
-`targetSite` 在比较和保存前必须归一化：缺少协议时补 `https://`，主机名转小写，移除默认端口、查询参数、Fragment 和非必要结尾斜杠，同时保留有效子路径。现有 `sites.json` 和 `records.json` 使用同一规则迁移，避免 `tekken3.cc` 与 `https://tekken3.cc/` 被当成两个目标网站。
+`targetSite` 在比较和保存前必须归一化：缺少协议时补 `https://`，主机名转小写并移除 `www.`，移除默认端口、查询参数、Fragment 和非必要结尾斜杠，同时保留有效子路径。现有 `sites.json` 和 `records.json` 使用同一规则迁移，避免 `tekken3.cc` 与 `https://tekken3.cc/` 被当成两个目标网站。
 
 178 条没有 `status` 的旧记录只视为“历史提交证据”，不能视为已经验证链接可见：
 
@@ -262,6 +262,7 @@ POC 只提供以下自动化 API：
 
 ```text
 POST  /api/automation/campaigns
+GET   /api/automation/campaigns                 (LinkMaster 管理页)
 GET   /api/automation/campaigns/active
 GET   /api/automation/campaigns/:id/next
 PATCH /api/automation/campaigns/:id/items/:itemId
@@ -270,9 +271,11 @@ POST  /api/automation/campaigns/:id/cancel
 ```
 
 - 创建 Campaign 时立即固定目标网站快照和候选 Item 列表。
+- 管理页使用登录 Cookie 读取 Campaign 历史和执行人工终态修正；Bearer Token 不能列出全部 Campaign。
 - 扩展只能读取唯一的活动 Campaign。
 - `next` 只返回下一条 `pending` Item 和当前 Campaign 所需的目标网站资料。
 - Item 更新成功持久化后，扩展才能请求下一条。
+- 人工终态修正复用 Item PATCH，但必须使用管理页登录 Cookie、终态状态和非空修正备注，不触发表单提交。
 - `complete` 批量纠正 `backlinks.json` 并归档 `records.json`。
 - `cancel` 终止 Campaign，不继续处理剩余 Item，也不把未检查的 Item 写入记录。
 - POC 不增加任务派发、租约、心跳或恢复 API。
