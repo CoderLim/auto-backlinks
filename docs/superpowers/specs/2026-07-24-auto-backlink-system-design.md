@@ -252,10 +252,9 @@ POC 因使用 GitHub JSON 且只有一个执行器，暂不实现数据库租约
 
 1. LinkMaster API 串行返回当前 Campaign 的下一条 `pending` Item。
 2. 每个 Item 使用稳定 `itemId`，并以 `(targetSite, backlinkId)` 作为业务幂等键。
-3. 扩展把当前 `itemId` 和最后一步保存在 `chrome.storage.local`，只用于中断提示和人工恢复。
-4. LinkMaster 保存 Item 结果后，扩展才请求下一个 Item。
-5. 中断的 `inspecting` Item 由用户选择继续或重置，不自动分配给其他执行器。
-6. POC 禁止同时打开两个自动执行窗口。
+3. LinkMaster 保存 Item 结果后，扩展才请求下一个 Item。
+4. POC 禁止同时打开两个自动执行窗口。
+5. POC 不实现扩展重载、浏览器关闭或页面崩溃后的步骤恢复。中断后不自动重新打开或再次提交当前 Item，用户可以结束或放弃当前 Campaign。
 
 POC 的最小 Item 状态为：
 
