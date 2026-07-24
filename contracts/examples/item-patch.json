@@ -21,7 +21,7 @@
     "usesModeration": true
   },
   "generatedComment": "The comparison of browser-side formats is useful, especially the note about choosing a format before conversion.",
-  "commentFingerprint": "sha256:937c49e7c751",
+  "commentFingerprint": "937c49e7c75126e61489c444ab14b56915f54d7276b50aa8d2781436e4576a88",
   "result": {
     "summary": "Form inspected and filled; waiting for explicit user submission."
   }
