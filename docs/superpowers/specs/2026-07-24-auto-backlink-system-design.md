@@ -161,7 +161,10 @@ POC 直接纠正 LinkMaster 现有候选字段，不长期维护一套“原值�
 - Campaign 结束时批量覆盖 `backlinks.json`：`topicCategory` 写入 `link_category`，实际链接方式写入新的 `link_type`，Dofollow/Nofollow 检测结果写入 `link_rel`，并更新检查状态和时间。
 - 只覆盖本次得到明确结果的字段；`unknown`、页面未加载成功或没有足够证据的字段保持原值。
 - Campaign Item 保存每次纠正的字段、修改前值和修改后值，Git 提交历史提供额外追溯能力。
-- 页面行业分类使用固定枚举；分类器无法给出明确类别时不覆盖 `link_category`。
+- `link_category` 是固定枚举、单选的页面行业字段，分类器不能自由生成新值。
+- 分类器无法给出明确行业时写入 `General`。
+- 大小写差异、拼写错误和同义分类统一为枚举中的标准值。
+- `Forum`、`Blog`、`Directory` 等渠道或页面形态不属于行业分类，不能写入 `link_category`。
 
 字段迁移只改变名称和纠正值，不增加更多持久化字段：
 
