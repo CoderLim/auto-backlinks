@@ -12,7 +12,7 @@
 - `link-master`：Next.js Web 平台，管理待投放外链、目标网站资料和历史投放记录。
 - `opencli`：可以获取竞品的具体外链来源页面 URL，但不纳入一期范围。
 
-`auto-backlinks` 仓库当前用于保存跨项目设计。它最终是否承载 Cloudflare Worker，或仅作为设计与集成工程目录，待 POC 后决定。
+`auto-backlinks` 仓库作为跨项目设计与集成工程目录。POC 不在该仓库创建第三个后端或管理界面。
 
 ## 2. 现有数据事实
 
@@ -288,6 +288,14 @@ POC 不研究单站静默失败的根因，也不在同一 Campaign 中重试。
 
 未来可以增加 Playwright、Skyvern 或其他远程浏览器 Worker。新 Worker 只需实现相同任务协议，不需要迁移 Campaign 和历史数据。
 
+### 4.6 仓库职责
+
+- `link-master`：实现 Campaign 管理界面、自动化 API、GitHub JSON 读写、候选纠正和结果归档。
+- `link-booster-extension`：实现页面检测、评论生成、表单填充、受控提交和即时结果回传。
+- `auto-backlink`：保存系统设计、跨项目 API 契约和必要的数据迁移脚本；POC 不运行线上服务。
+
+一期不抽取共享运行时代码包。两个运行项目通过版本化 JSON API 契约集成，避免为了共享少量类型增加第三套发布流程。
+
 ## 5. 不采用的方案
 
 ### 5.1 全部迁入 Chrome 扩展
@@ -465,4 +473,3 @@ Google 明确将大规模用户生成垃圾内容和不自然链接列为搜索�
 5. POC 结束后 D1 的具体表结构、迁移步骤和 Cloudflare 部署边界。
 6. 正式阶段的扩展实例认证和 API 权限模型。
 7. 评论生成质量门槛、重复度检查和禁发规则。
-8. `auto-backlink` 仓库的最终职责。
