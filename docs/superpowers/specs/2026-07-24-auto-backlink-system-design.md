@@ -136,7 +136,7 @@ POC 的首要目标是验证评论链路并纠正候选数据：页面是否可�
 
 ### 3.9 运行时元数据纠正
 
-保留原始导入字段，不在执行过程中直接覆盖。每个 Campaign Item 新增 `observedMetadata`：
+每个 Campaign Item 在页面检查阶段生成 `observedMetadata`：
 
 - `topicCategory`：页面实际主题。
 - `placementType`：`blog_comment`、`forum`、`directory`、`profile` 或 `unknown`。
@@ -154,7 +154,13 @@ POC 的首要目标是验证评论链路并纠正候选数据：页面是否可�
 
 扩展通过已有评论中的站外 Anchor、作者区域、表单字段和编辑器提示推断能力。`linkRel` 单独记录实际 Anchor 的 `nofollow`、`ugc`、`sponsored` 或 follow 情况。渲染后的 Anchor 不能单独证明原输入是 HTML、Markdown 还是 BBCode。
 
-POC 先把检测结果保存在 Campaign Item 中。Campaign 结束后，确定性结果可以批量回写 LinkMaster；AI 推断的主题或低置信度分类需要人工确认。
+POC 直接纠正 LinkMaster 现有候选字段，不长期维护一套“原值”和一套“实测值”：
+
+- Item 执行时先把检测结果保存在 Campaign 文件中，避免每个步骤同时写多个 JSON 文件。
+- Campaign 结束时批量覆盖 `backlinks.json`：`topicCategory` 写入 `link_category`，实际页面/投放类型写入 `type`，实测 Anchor `rel` 写入 `link_type`，并更新检查状态和时间。
+- 只覆盖本次得到明确结果的字段；`unknown`、页面未加载成功或没有足够证据的字段保持原值。
+- Campaign Item 保存每次纠正的字段、修改前值和修改后值，Git 提交历史提供额外追溯能力。
+- 页面行业分类使用固定枚举；分类器无法给出明确类别时不覆盖 `link_category`。
 
 ### 3.10 评论生成质量门槛
 
