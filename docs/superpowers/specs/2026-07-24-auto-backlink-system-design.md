@@ -80,8 +80,8 @@
 2. 页面不支持 `author_website` 时，只有运行时证据表明现有评论正文允许站外链接，才选择已识别的 `comment_body/*` 格式并把目标链接放进正文。
 3. 无法确认正文支持站外链接时，不强行插入链接，Item 标记为 `cannot_submit` 或由用户 `skipped`。
 4. 即使页面同时支持多种方式，POC 也优先 `author_website`；正文链接只是回退方式，不进行双重放置。
-5. 正文必须带链接时，锚文本优先使用 LinkMaster 为目标站明确配置的 `brandName`；即使品牌名本身也是 SEO 关键词，也视为合法品牌锚文本。
-6. 生成模型不得根据当前页面自行改写、扩展或堆叠关键词锚文本。品牌名无法自然放入正文时回退为裸域名。
+5. 用户名链接和正文链接都优先使用 LinkMaster 目标网站配置中的 `name` 作为锚文本；即使网站名本身也是 SEO 关键词，也按网站正式名称处理。
+6. 生成模型不得根据当前页面自行改写、扩展或堆叠其他关键词锚文本。网站名无法自然放入正文时回退为裸域名。
 
 ### 3.5 执行环境
 
@@ -161,7 +161,7 @@ POC 先把检测结果保存在 Campaign Item 中。Campaign 结束后，确定�
 LinkMaster 负责：
 
 - 外链候选池
-- 目标网站资料，包括该目标站提交评论时使用的 `commenterName` 和 `commenterEmail`
+- 目标网站资料，包括提交评论时使用的网站 `name`、`domain` 和邮箱
 - Campaign 配置
 - Campaign Items 的选择、顺序和进度
 - `(targetSite, backlinkId)` 去重
@@ -293,7 +293,10 @@ GitHub 写入约束：
 
 ### 6.3 评论身份资料
 
-- `commenterName` 和 `commenterEmail` 按目标网站集中保存在 LinkMaster，不让扩展为同一目标站维护另一份资料。
+- 当前 LinkMaster 的 `sites.json` 只有 `domain`、`tagline` 和 `description`；扩展本地配置另有 `name`、`url`、`userName` 和 `userEmail`，两处配置尚未统一。
+- POC 将网站 `name` 和评论邮箱迁入 LinkMaster，由 LinkMaster 按目标网站集中保存，不让扩展维护另一份网站列表。
+- 不新增 `brandName` 或独立 `commenterName`：表单用户名固定使用网站 `name`，Website URL 使用规范化后的 `domain`。
+- 扩展现有 `userName` 字段不再参与自动发布；现有代码中缺少邮箱时使用的硬编码默认值必须移除。
 - 创建 Campaign 时对身份资料做快照；自动化 API 只返回当前 Campaign 对应目标站的必要资料，不返回全部网站列表。
 - 身份资料缺失时扩展停止当前 Item 并提示补全，禁止使用硬编码的默认邮箱或网站名替代用户名。
 - 一期不把账号密码纳入身份资料，也不向扩展发送现有 `details` 字段。
