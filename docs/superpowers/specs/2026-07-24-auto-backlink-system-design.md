@@ -1,8 +1,8 @@
 # 自动外链系统设计决策
 
-> 状态：讨论中，持续更新
+> 状态：设计完成，待用户审阅
 > 日期：2026-07-24
-> 当前阶段：已确认目标架构、POC 范围和 GitHub 过渡存储方案；POC 结果将决定后续 D1 设计
+> 当前阶段：POC 架构、范围、数据模型、执行流程和技术妥协已确认；审阅通过后进入实施计划
 
 ## 1. 背景
 
@@ -31,6 +31,8 @@ POC 只按具体候选页面建模：
 - `backlinkId` 标识一个具体 URL。
 - `(targetSite, backlinkId)` 唯一确定某个目标网站是否已经向该页面提交，用于防止重复。
 - POC 不提取 `channelKey`，也不把同一域名的不同 URL 合并或共享成功经验。
+
+`targetSite` 在比较和保存前必须归一化：缺少协议时补 `https://`，主机名转小写，移除默认端口、查询参数、Fragment 和非必要结尾斜杠，同时保留有效子路径。现有 `sites.json` 和 `records.json` 使用同一规则迁移，避免 `tekken3.cc` 与 `https://tekken3.cc/` 被当成两个目标网站。
 
 178 条没有 `status` 的旧记录只视为“历史提交证据”，不能视为已经验证链接可见：
 
@@ -66,6 +68,7 @@ POC 只按具体候选页面建模：
 - 一期不判断候选页面行业与目标网站主题是否相关，也不以相关性低为由跳过。
 - 页面行业分类在运行时重新识别并用于纠正 LinkMaster 候选数据，但只作为元数据，不参与 POC 筛选。
 - 一期不自动在多个目标网站中做匹配。
+- 符合条件的候选少于用户请求数量时，Campaign 创建失败并显示实际可用数量，不静默创建较小 Campaign。
 
 ### 3.4 自动化边界
 
@@ -202,7 +205,7 @@ LinkMaster 负责：
 - Campaign Items 的选择、顺序和进度
 - `(targetSite, backlinkId)` 去重
 - 执行记录、提交证据和最终验证结果
-- 失败分类、重试策略和人工处理队列
+- 失败分类和人工结果修正
 - Campaign 统计与审计
 
 关键业务状态必须保存在控制面，不能只存在浏览器内存或扩展本地存储。
@@ -220,7 +223,7 @@ LinkMaster 负责：
 - 识别并填写表单字段
 - 填充后暂停等待人工确认
 - 检测登录、验证码、审核提示和异常页面
-- 回传执行步骤、错误类型、截图、最终 URL 和页面反馈
+- 回传执行步骤、错误类型、最终 URL 和页面反馈摘要
 
 扩展可以展示 Campaign、队列和执行进度，但这些只是 LinkMaster 数据的客户端视图，不是新的事实来源。
 
@@ -254,6 +257,25 @@ POC 因使用 GitHub JSON 且只有一个执行器，暂不实现数据库租约
 3. LinkMaster 保存 Item 结果后，扩展才请求下一个 Item。
 4. POC 禁止同时打开两个自动执行窗口。
 5. POC 不实现扩展重载、浏览器关闭或页面崩溃后的步骤恢复。中断后不自动重新打开或再次提交当前 Item，用户可以结束或放弃当前 Campaign。
+
+POC 只提供以下自动化 API：
+
+```text
+POST  /api/automation/campaigns
+GET   /api/automation/campaigns/active
+GET   /api/automation/campaigns/:id/next
+PATCH /api/automation/campaigns/:id/items/:itemId
+POST  /api/automation/campaigns/:id/complete
+POST  /api/automation/campaigns/:id/cancel
+```
+
+- 创建 Campaign 时立即固定目标网站快照和候选 Item 列表。
+- 扩展只能读取唯一的活动 Campaign。
+- `next` 只返回下一条 `pending` Item 和当前 Campaign 所需的目标网站资料。
+- Item 更新成功持久化后，扩展才能请求下一条。
+- `complete` 批量纠正 `backlinks.json` 并归档 `records.json`。
+- `cancel` 终止 Campaign，不继续处理剩余 Item，也不把未检查的 Item 写入记录。
+- POC 不增加任务派发、租约、心跳或恢复 API。
 
 POC 的最小 Item 状态为：
 
@@ -322,9 +344,16 @@ POC 暂不引入 Supabase 或 D1。GitHub 继续保存低频目录数据和 POC 
 - 现有 `backlinks.json`：候选外链目录。
 - 现有 `sites.json`：目标网站资料。
 - 现有 `records.json`：既有和最终归档的投放记录。
-- 新增 POC Campaign 文件：保存 Campaign 快照、20 至 30 个稳定 Item ID、顺序、状态和最小结果摘要。
+- 新增 `campaigns.json`：保存少量 POC Campaign 历史。
 
-POC Campaign 文件是运行期间的事实来源。Campaign 结束时，再把最终 `published` 或 `cannot_submit` 结果按 `(targetSite, backlinkId)` 幂等合并到 `records.json`。这样避免每一步同时更新多个 JSON 文件。
+每个 Campaign 保存：
+
+- `campaignId`、`status`、目标网站快照、请求数量和时间。
+- 创建时固定的 20 至 30 个 Items。
+- 每个 Item 的 `itemId`、`backlinkId`、候选 URL、顺序、状态、失败原因、检测数据和提交结果。
+- Campaign 状态只使用 `active`、`completed` 或 `cancelled`。
+
+`campaigns.json` 是运行期间的事实来源。Campaign 结束时，再把最终 `published` 或 `cannot_submit` 结果按 `(targetSite, backlinkId)` 幂等合并到 `records.json`，并批量纠正 `backlinks.json`。这样避免每一步同时更新多个 JSON 文件。
 
 GitHub 写入约束：
 
@@ -347,6 +376,7 @@ GitHub 写入约束：
 
 - 当前 LinkMaster 的 `sites.json` 只有 `domain`、`tagline` 和 `description`；扩展本地配置另有 `name`、`url`、`userName` 和 `userEmail`，两处配置尚未统一。
 - POC 将网站 `name` 和评论邮箱迁入 LinkMaster，由 LinkMaster 按目标网站集中保存，不让扩展维护另一份网站列表。
+- POC 目标网站资料固定为 `name`、`domain`、`email`、`tagline` 和 `description`。
 - 不新增 `brandName` 或独立 `commenterName`：表单用户名固定使用网站 `name`，Website URL 使用规范化后的 `domain`。
 - 扩展现有 `userName` 字段不再参与自动发布；现有代码中缺少邮箱时使用的硬编码默认值必须移除。
 - 创建 Campaign 时对身份资料做快照；自动化 API 只返回当前 Campaign 对应目标站的必要资料，不返回全部网站列表。
@@ -402,28 +432,84 @@ GitHub 中只保存足够诊断和迁移的数据：
 
 D1 阶段保留现有 `itemId` 和 `(targetSite, backlinkId)` 幂等键，并将 Campaign、Item、运行记录、投放记录和 Worker 状态迁入关系表。扩展 API 契约不因迁移而改变。只有后续确实需要跨页面复用外链网站经验时，才增加域名级分组。
 
-## 7. 市场与开源项目参考
+## 7. POC 错误处理
 
-### 7.1 Semrush Link Building Tool
+### 7.1 提交前
+
+以下无副作用步骤失败时最多自动重试一次：
+
+- 页面首次加载。
+- 页面内容提取。
+- AI 评论生成。
+- LinkMaster API 读取。
+
+重试后仍失败时，保存标准化原因：
+
+- 页面不可访问、加载超时或技术异常：`failed`。
+- 页面可访问但不支持评论：`cannot_submit`。
+- 需要登录或出现验证码：`awaiting_review`，由用户处理或跳过。
+- 评论两次生成都未通过质量检查：`skipped`，原因 `comment_quality_failed`。
+- API 鉴权失败：停止整个 Campaign，不能继续读取或提交 Item。
+
+### 7.2 提交后
+
+- 点击提交后绝不自动再次点击提交按钮。
+- 提交结果按照 4.4 的即时验证规则分类。
+- Item 结果回写失败时停留在当前页面，只重试保存结果，不请求下一条。
+- GitHub SHA 冲突时，LinkMaster 重新读取并按 `itemId` 合并一次；仍然冲突则停止 Campaign。
+- POC 不尝试恢复因浏览器关闭、扩展重载或页面崩溃而丢失的提交后状态。
+
+## 8. POC 测试与验收
+
+### 8.1 LinkMaster 自动化测试
+
+- 候选过滤：排除根路径、不可用页面和当前目标网站已有记录的页面。
+- 候选抽样：在数据充足时形成约 25% 有历史提交记录、75% 无历史记录的固定 Items。
+- 去重：严格使用 `(targetSite, backlinkId)`。
+- 字段迁移：一次性把旧 `type` 映射到新 `link_type`，旧 `link_type` 映射到 `link_rel`，不发生覆盖。
+- Campaign：只允许一个 `active` Campaign，Item 状态更新后才能返回下一条。
+- 完成归档：幂等更新 `backlinks.json` 和 `records.json`。
+- GitHub 冲突：按 `itemId` 合并，无法安全合并时停止。
+
+### 8.2 扩展自动化测试
+
+使用本地 HTML fixture 覆盖：
+
+- 用户名、邮箱、Website URL 和评论字段识别。
+- `UserName Link`、`Text Link`、`HTML Link`、`Markdown Link` 和 `BBCode Link` 证据检测。
+- 无评论表单、登录要求、验证码和不支持页面。
+- 评论语言、长度、具体内容引用和一次重生成规则。
+- 发布可见、等待审核、明确拒绝和静默失败判定。
+- API 鉴权、活动 Campaign、下一 Item 和结果回写。
+
+### 8.3 人工 POC
+
+- 真实执行一个包含 20 至 30 个 Item 的 Campaign。
+- 自动化测试和 CI 不向真实外部网站提交评论。
+- 验收数据以 3.7 的完成标准为准，并人工抽查字段纠正结果。
+
+## 9. 市场与开源项目参考
+
+### 9.1 Semrush Link Building Tool
 
 Semrush 将流程组织为 `Prospects -> In Progress -> Monitor`，说明候选、执行中任务和结果监控应当是不同阶段：
 
 - https://zh.semrush.com/kb/737-reviewing-link-building-prospects
 
-### 7.2 GSA Search Engine Ranker
+### 9.2 GSA Search Engine Ranker
 
 GSA SER 使用 Project、过滤器、提交和独立验证机制，并区分提交 URL 与最终验证 URL。可借鉴其项目级配置、质量过滤和延迟验证，但不照搬其高强度批量发布模式：
 
 - https://www.gsa-online.de/en/product/search_engine_ranker/
 - https://www.gsa-online.de/download/search_engine_ranker-script_language.pdf
 
-### 7.3 Automa
+### 9.3 Automa
 
 Automa 证明浏览器扩展可以执行表单填充、重复任务和定时工作流，适合作为本机执行器：
 
 - https://github.com/AutomaApp/automa
 
-### 7.4 Skyvern 与 Stagehand
+### 9.4 Skyvern 与 Stagehand
 
 Skyvern 的 Task、Workflow、Run 模型，以及输出、失败原因、截图和录像等执行证据值得参考。Stagehand 的“确定性代码处理已知步骤，AI 处理未知页面”原则适合作为执行器设计原则：
 
@@ -431,13 +517,13 @@ Skyvern 的 Task、Workflow、Run 模型，以及输出、失败原因、截图�
 - https://www.skyvern.com/docs/developers/getting-started/core-concepts
 - https://github.com/browserbase/stagehand
 
-### 7.5 Chrome Manifest V3
+### 9.5 Chrome Manifest V3
 
-Chrome 扩展 service worker 会因空闲或超时被终止，关键状态必须持久化，并允许恢复：
+Chrome 扩展 service worker 会因空闲或超时被终止。正式阶段需要持久化关键状态并允许恢复；POC 接受中断后停止、不能恢复的技术妥协：
 
 - https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle
 
-### 7.6 GitHub API
+### 9.6 GitHub API
 
 GitHub API 有请求和内容创建限流，官方也建议避免轮询、并发变更和高频写入。这是 GitHub 方案只限 POC 使用的直接原因：
 
@@ -445,14 +531,14 @@ GitHub API 有请求和内容创建限流，官方也建议避免轮询、并发
 - https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api
 - https://docs.github.com/en/rest/repos/contents
 
-## 8. 质量与合规原则
+## 10. 质量与合规原则
 
 自动评论不能只以“发布数量”为成功指标。系统需要：
 
-- 只在内容相关且明确允许用户评论的页面工作。
+- 只在明确允许用户评论的页面工作，并保证评论正文与当前页面内容相关。
 - 禁止无关评论、批量重复文案和误用联系表单、订阅表单。
 - 按目标站和具体候选页面控制重复提交。
-- 区分 `submitted`、`accepted`、`published` 和 `verified`。
+- 区分 `submitted`、`published`、`pending_moderation` 和拒绝结果。
 - 保存最终落地 URL 和验证证据。
 - 支持停止 Campaign、排除候选页面以及删除或复查历史投放。
 
@@ -461,7 +547,7 @@ Google 明确将大规模用户生成垃圾内容和不自然链接列为搜索�
 - https://support.google.com/webmasters/answer/9044175
 - https://support.google.com/webmasters/answer/13580519
 
-## 9. 待确认问题
+## 11. 二期问题
 
 以下二期或扩展内容尚未定稿，不阻塞 POC：
 
