@@ -165,6 +165,8 @@ POC 直接纠正 LinkMaster 现有候选字段，不长期维护一套“原值�
 - 分类器无法给出明确行业时写入 `General`。
 - 大小写差异、拼写错误和同义分类统一为枚举中的标准值。
 - `Forum`、`Blog`、`Directory` 等渠道或页面形态不属于行业分类，不能写入 `link_category`。
+- POC 允许的行业值为：`General`、`Gaming`、`Technology`、`Software & SaaS`、`AI`、`Business & Startup`、`Marketing & SEO`、`Finance`、`Education`、`Health`、`Sports`、`Entertainment`、`Arts & Design`、`Lifestyle`、`Travel`、`Food`、`Home & Garden`、`Automotive`、`Real Estate`、`Legal`、`Science`。
+- 只有成功提取到页面正文时才运行行业分类；页面正文无法读取时不覆盖原 `link_category`。
 
 字段迁移只改变名称和纠正值，不增加更多持久化字段：
 
