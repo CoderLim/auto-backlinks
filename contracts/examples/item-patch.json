@@ -1,0 +1,28 @@
+{
+  "status": "awaiting_review",
+  "observedMetadata": {
+    "topicCategory": "Technology",
+    "linkType": "UserName Link",
+    "linkRel": "Nofollow"
+  },
+  "inspection": {
+    "supported": true,
+    "fields": {
+      "name": true,
+      "email": true,
+      "website": true,
+      "comment": true,
+      "submit": true
+    },
+    "linkType": "UserName Link",
+    "linkRel": "Nofollow",
+    "requiresLogin": false,
+    "hasCaptcha": false,
+    "usesModeration": true
+  },
+  "generatedComment": "The comparison of browser-side formats is useful, especially the note about choosing a format before conversion.",
+  "commentFingerprint": "sha256:937c49e7c751",
+  "result": {
+    "summary": "Form inspected and filled; waiting for explicit user submission."
+  }
+}

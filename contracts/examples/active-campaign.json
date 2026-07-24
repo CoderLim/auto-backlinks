@@ -1,0 +1,46 @@
+{
+  "apiVersion": 1,
+  "data": {
+    "schemaVersion": 1,
+    "campaignId": "74e09f23-90fb-4128-9cce-9ad88269cd1f",
+    "targetSite": "https://product.example/yt-converter",
+    "targetSiteSnapshot": {
+      "name": "Video Converter",
+      "domain": "https://product.example/yt-converter",
+      "email": "team@product.example",
+      "tagline": "Convert media in your browser",
+      "description": "A browser-based media conversion tool."
+    },
+    "requestedCount": 20,
+    "status": "active",
+    "createdAt": "2026-07-24T08:00:00.000Z",
+    "updatedAt": "2026-07-24T08:04:00.000Z",
+    "items": [
+      {
+        "itemId": "da2ce196-c52b-4840-b6e0-1f0c4b27e2d8",
+        "backlinkId": "backlink-0042",
+        "url": "https://publisher.example/posts/comment-page",
+        "order": 1,
+        "status": "awaiting_review",
+        "observedMetadata": {
+          "topicCategory": "Technology",
+          "linkType": "UserName Link",
+          "linkRel": "Nofollow"
+        },
+        "generatedComment": "The comparison of browser-side formats is useful, especially the note about choosing a format before conversion.",
+        "commentFingerprint": "sha256:937c49e7c751",
+        "createdAt": "2026-07-24T08:00:00.000Z",
+        "updatedAt": "2026-07-24T08:04:00.000Z"
+      },
+      {
+        "itemId": "72b3225c-cdd7-4c49-82cc-9f612555f45e",
+        "backlinkId": "backlink-0107",
+        "url": "https://publisher.example/guides/media-tools",
+        "order": 2,
+        "status": "pending",
+        "createdAt": "2026-07-24T08:00:00.000Z",
+        "updatedAt": "2026-07-24T08:00:00.000Z"
+      }
+    ]
+  }
+}
