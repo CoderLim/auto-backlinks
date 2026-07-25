@@ -52,6 +52,7 @@ successful JSON responses whose `apiVersion` is not `1`.
 | Method | Path | Access | Success |
 | --- | --- | --- | --- |
 | `GET` | `/api/automation/targets` | Bearer | `200`, target option array |
+| `GET` | `/api/automation/stats/published` | Bearer | `200`, `{ count }` for a day window |
 | `POST` | `/api/automation/next` | Bearer | `200`, direct Item context; or `204` |
 | `POST` | `/api/automation/results/sync` | Bearer | `200`, saved result array |
 
@@ -78,6 +79,29 @@ email. The listing exposes only selection fields:
 
 Email, descriptions, credentials, GitHub data, and unrelated site data are not
 returned by this endpoint.
+
+## Published Stats
+
+`GET /api/automation/stats/published` counts records for one target in an open
+time window supplied by the client (local calendar day as ISO `from`/`to`):
+
+```text
+?targetSite=https://csvviewer.net
+&from=2026-07-25T00:00:00.000Z
+&to=2026-07-26T00:00:00.000Z
+```
+
+Response:
+
+```json
+{
+  "apiVersion": 1,
+  "data": { "count": 3 }
+}
+```
+
+Only `published` and `pending_moderation` records are counted. Activity time is
+`verifiedAt ?? submittedAt ?? updatedAt ?? createdAt`.
 
 ## Next Backlink
 
