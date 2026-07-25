@@ -11,13 +11,13 @@ checked.
 - [x] LinkMaster migration rehearsal passed on copied data.
 - [x] LinkMaster API contract smoke passed.
 - [x] LinkMaster test suite passed: 75 tests.
-- [x] Link Booster test suite passed: 57 tests.
+- [x] Link Booster test suite passed: 60 tests.
 - [x] Link Booster production build and package passed.
-- [ ] One target site has a non-empty name and valid email.
-- [ ] Extension UI and content-script boundary passed in normal Chrome.
+- [x] One target site has a non-empty name and valid email.
+- [x] Extension UI and content-script boundary passed in normal Chrome.
 - [ ] A non-development automation token is configured.
 - [ ] Production JSON backup and hashes are recorded.
-- [ ] No active Campaign exists.
+- [x] No active Campaign exists.
 
 The first two unchecked items currently prevent a real Campaign.
 
@@ -44,7 +44,7 @@ Packaged extension:
 Expected ZIP SHA-256:
 
 ```text
-0c26255ecd01a3d0fb8711179eee404effedca9746fc15f6045f74db8a3f01c9
+bb1b04fb3344e5c6338f8653f92fb5889c10ef39d250d66375bfadcc4c3f9cb3
 ```
 
 ## Chrome Acceptance
@@ -167,6 +167,10 @@ For each Item:
 The executor does not solve CAPTCHA, bypass login, submit automatically, or
 retry a mutation. A save error must leave the current result available for
 Retry Save.
+
+Passive reCAPTCHA v3 scripts, styles, hidden response fields, and invisible
+badges do not count as a blocking challenge. A visible CAPTCHA remains a manual
+stop/skip condition.
 
 ## Immediate Stop Conditions
 
