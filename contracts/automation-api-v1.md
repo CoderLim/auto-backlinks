@@ -1,25 +1,25 @@
 # Automation API Version 1
 
-This contract defines the POC boundary between LinkMaster (control plane) and
-the Link Booster Chrome extension (executor).
+This contract defines the direct-processing boundary between LinkMaster and the
+Link Booster Chrome extension.
 
-## Transport and Authentication
+The v1 extension does not create or execute Campaigns. It reads the first
+unprocessed backlink for a target website, handles it, immediately writes one
+terminal result, and then requests the next backlink.
+
+## Transport And Authentication
 
 - Base URL: the configured LinkMaster HTTP(S) origin.
 - Executor requests use `Authorization: Bearer <AUTOMATION_API_TOKEN>`.
-- Admin requests use LinkMaster's `auth_token` cookie.
 - JSON request bodies use `Content-Type: application/json`.
-- JSON request bodies are limited to 65,536 bytes (64 KiB).
-- V1 does not enforce per-field string length limits. This is a documented POC
-  compromise and should be tightened before exposing the API beyond a private
-  deployment.
+- JSON request bodies are limited to 65,536 bytes.
 - CORS allows all origins, methods `GET, POST, PATCH, OPTIONS`, and headers
-  `Authorization, Content-Type`. Preflight responses have a one-day max age.
+  `Authorization, Content-Type`.
 - `OPTIONS` returns `204 No Content`.
+- V1 assumes one extension executor and does not claim or lease Items.
 
-The bearer token is an executor credential, not an admin credential. In
-particular, it cannot create or list Campaigns and cannot perform manual result
-corrections.
+The bearer token is an executor credential, not an admin credential. It cannot
+list or modify all LinkMaster data.
 
 ## Envelopes
 
@@ -44,112 +44,103 @@ JSON errors:
 }
 ```
 
-An endpoint may return `204 No Content`; a 204 response has no JSON body.
-Clients must reject successful JSON responses whose `apiVersion` is not `1`.
+An endpoint may return `204 No Content` without a JSON body. Clients reject
+successful JSON responses whose `apiVersion` is not `1`.
 
-## Routes
+## Primary Routes
 
 | Method | Path | Access | Success |
 | --- | --- | --- | --- |
-| `POST` | `/api/automation/campaigns` | Admin | `201`, Campaign |
-| `GET` | `/api/automation/campaigns` | Admin | `200`, Campaign array |
-| `GET` | `/api/automation/campaigns/active` | Bearer | `200`, Campaign; or `204` |
-| `GET` | `/api/automation/campaigns/:id/next` | Bearer | `200`, next Item context; or `204` |
-| `PATCH` | `/api/automation/campaigns/:id/items/:itemId` | Bearer | `200`, updated Item |
-| `PATCH` | `/api/automation/campaigns/:id/items/:itemId` | Admin in manual correction mode | `200`, corrected Item |
-| `POST` | `/api/automation/campaigns/:id/complete` | Admin or Bearer | `200`, completed Campaign |
-| `POST` | `/api/automation/campaigns/:id/cancel` | Admin or Bearer | `200`, cancelled Campaign |
+| `GET` | `/api/automation/targets` | Bearer | `200`, target option array |
+| `GET` | `/api/automation/next?targetSite=...` | Bearer | `200`, direct Item context; or `204` |
+| `POST` | `/api/automation/results` | Bearer | `200`, saved direct record |
 
-`GET /api/automation/campaigns/:id/next` prioritizes an in-flight
-`inspecting`, `awaiting_review`, or `submitted` Item before returning the first
-`pending` Item. This allows an extension reload to resume work without resetting
-state or submitting a comment twice.
+## Target Options
 
-`GET /api/automation/campaigns` returns `403 admin_scope_required` when
-presented with only a valid executor bearer token.
+`GET /api/automation/targets` returns only sites with a non-empty name and valid
+email. The listing exposes only selection fields:
 
-## Campaign Creation
+```json
+{
+  "apiVersion": 1,
+  "data": [
+    {
+      "name": "CSV Viewer",
+      "domain": "https://csvviewer.net"
+    }
+  ]
+}
+```
+
+Email, descriptions, credentials, GitHub data, and unrelated site data are not
+returned by this endpoint.
+
+## Next Backlink
+
+Request:
+
+```text
+GET /api/automation/next?targetSite=https%3A%2F%2Fcsvviewer.net
+```
+
+Response:
+
+```json
+{
+  "apiVersion": 1,
+  "data": {
+    "targetSite": "https://csvviewer.net",
+    "targetSiteSnapshot": {
+      "name": "CSV Viewer",
+      "domain": "https://csvviewer.net",
+      "email": "comment@example.com",
+      "tagline": "",
+      "description": ""
+    },
+    "item": {
+      "backlinkId": "backlink-id",
+      "url": "https://source.example/article"
+    }
+  }
+}
+```
+
+LinkMaster scans `backlinks.json` in array order and returns the first entry
+that:
+
+- uses HTTP(S) and has a non-root path;
+- is not marked `inaccessible` or `unsubmittable`; and
+- has no normalized `(targetSite, backlinkId)` match in `records.json`.
+
+When no candidate remains, the endpoint returns `204`.
+
+This endpoint is read-only. Repeated calls before a result is saved may return
+the same backlink. V1 intentionally has no Campaign, Run, batch, cursor, claim,
+or in-flight state.
+
+## Immediate Result
 
 Request:
 
 ```json
 {
-  "targetSite": "https://product.example/path",
-  "count": 5
+  "targetSite": "https://csvviewer.net",
+  "backlinkId": "backlink-id",
+  "url": "https://source.example/article",
+  "status": "published",
+  "generatedComment": "Saved comment text",
+  "failureReason": "",
+  "observedMetadata": {
+    "topicCategory": "Technology",
+    "linkType": "UserName Link",
+    "linkRel": "Nofollow"
+  },
+  "submittedAt": "2026-07-25T04:00:00.000Z",
+  "verifiedAt": "2026-07-25T04:00:03.000Z"
 }
 ```
 
-`count` must be an integer from 5 through 30. LinkMaster resolves
-`targetSite` against its stored site identities and snapshots `name`, normalized
-`domain`, `email`, `tagline`, and `description`. A site without a non-empty name
-and valid email is rejected.
-
-Only eligible non-root HTTP(S) backlink URLs are selected. Inaccessible and
-unsubmittable backlinks and exact `(targetSite, backlinkId)` submission history
-are excluded. LinkMaster permits one active Campaign.
-
-## Campaign
-
-Required fields:
-
-| Field | Type |
-| --- | --- |
-| `schemaVersion` | literal `1` |
-| `campaignId` | string |
-| `targetSite` | normalized HTTP(S) URL string |
-| `targetSiteSnapshot` | TargetSiteSnapshot |
-| `requestedCount` | integer, 5-30 |
-| `status` | `active`, `completed`, or `cancelled` |
-| `items` | Item array |
-| `createdAt`, `updatedAt` | ISO date-time strings |
-
-TargetSiteSnapshot:
-
-| Field | Type |
-| --- | --- |
-| `name`, `domain`, `email` | string |
-| `tagline`, `description` | string, optional |
-
-The snapshot is immutable Campaign input. The executor must use the snapshot,
-not a later site edit, while filling an Item.
-
-## Item and State Machine
-
-Required Item fields:
-
-| Field | Type |
-| --- | --- |
-| `itemId`, `backlinkId`, `url` | string |
-| `order` | positive integer |
-| `status` | ItemStatus |
-| `createdAt`, `updatedAt` | ISO date-time strings when persisted |
-
-Optional execution fields:
-
-```text
-failureReason
-observedMetadata
-inspection
-generatedComment
-commentFingerprint
-submission
-submittedAt
-result
-note
-corrections
-```
-
-State transitions:
-
-```text
-pending -> inspecting
-inspecting -> awaiting_review | cannot_submit | failed | skipped
-awaiting_review -> submitted | skipped | failed
-submitted -> published | pending_moderation | silent_reject |
-             explicit_reject | failed
-```
-
-Terminal statuses:
+Allowed terminal statuses:
 
 ```text
 published
@@ -161,38 +152,29 @@ cannot_submit
 failed
 ```
 
-The executor PATCH must contain `status`. Accepted top-level fields are:
+LinkMaster validates the target identity, backlink ID, exact stored backlink
+URL, terminal status, and observed metadata. It immediately:
 
-```text
-status
-failureReason
-observedMetadata
-inspection
-generatedComment
-commentFingerprint
-submission
-submittedAt
-result
-note
-```
+1. overwrites explicit `link_category`, `link_type`, and `link_rel` values in
+   `backlinks.json`;
+2. appends the result to `records.json` using normalized
+   `(targetSite, backlinkId)` as the business key; and
+3. returns the saved record.
 
-Unknown top-level fields are ignored in executor mode. Status transitions are
-validated server-side. The extension sends mutation requests once and does not
-automatically retry them.
+Every terminal status is written to `records.json`. Therefore published,
+moderated, rejected, skipped, not-submittable, and failed backlinks are all
+considered processed for that target website and are not selected again.
+
+A repeated business-identical request is idempotent. A second request for the
+same key with a different status, URL, comment, failure reason, metadata, or
+submission/verification timestamp returns `409 result_already_recorded`.
+
+The extension must save a terminal result before requesting another backlink.
+If saving fails, it retains the result and offers Retry Save without advancing.
 
 ## Observed Metadata
 
-API field names use camelCase:
-
-```json
-{
-  "topicCategory": "Technology",
-  "linkType": "UserName Link",
-  "linkRel": "Nofollow"
-}
-```
-
-LinkMaster persists explicit values to the existing backlink data fields:
+API fields map to existing backlink JSON fields:
 
 | API field | Backlink JSON field |
 | --- | --- |
@@ -200,8 +182,7 @@ LinkMaster persists explicit values to the existing backlink data fields:
 | `linkType` | `link_type` |
 | `linkRel` | `link_rel` |
 
-`Unknown` and missing metadata values do not overwrite existing backlink data.
-Explicit observed values overwrite existing values when a Campaign completes.
+Missing, empty, and `Unknown` values do not overwrite existing data.
 
 Topic categories:
 
@@ -249,28 +230,14 @@ Nofollow
 Unknown
 ```
 
-## Manual Correction
+## Reload And Stop Semantics
 
-An authenticated LinkMaster admin may correct a terminal result:
-
-```json
-{
-  "manualCorrection": true,
-  "status": "published",
-  "correctionNote": "Visible after moderation."
-}
-```
-
-All three fields are required in practice; `status` must be terminal and
-`correctionNote` must be non-empty. Extra fields are rejected. The correction
-history records the old status, new status, note, and timestamp.
-
-## Completion and Archival
-
-A Campaign can complete only when every Item is terminal. Completion preserves
-all Item results in the Campaign. Only `published` and `cannot_submit` Items are
-archived into `records.json`. Completion is idempotent: completing an already
-completed Campaign does not append duplicate records or reapply metadata.
+- If the extension reloads before saving a result, Start returns the first
+  unrecorded backlink again.
+- If saving succeeds but the response is lost, the next request skips that
+  backlink because the record exists.
+- Stop closes the extension's automation tab and does not mutate LinkMaster.
+- V1 does not prevent two extension instances from reading the same backlink.
 
 ## Privacy Boundary
 
@@ -285,40 +252,38 @@ screenshot
 html
 ```
 
-The API may store compact structured inspection, submission, and verification
-summaries. It must not return full page markup, screenshots, credentials, or
-full model traces.
+The API may store compact result and metadata values. It must not return full
+page markup, screenshots, credentials, or model traces.
 
 ## Error Codes
 
-The stable errors currently exposed by V1 include:
+Stable direct-processing errors include:
 
 ```text
-admin_auth_required
-admin_scope_required
 automation_auth_required
-campaign_access_required
 invalid_json
 payload_too_large
-invalid_target_site_identity
-invalid_campaign_count
-insufficient_candidates:<count>
-active_campaign_exists
-campaign_not_found
-campaign_not_active
-campaign_not_completable
-campaign_item_not_found
-campaign_item_not_terminal
-invalid_item_transition
-item_status_required
+direct_target_required
+direct_target_not_found
+direct_backlink_not_found
+invalid_direct_result
+invalid_direct_result_status
+direct_result_target_mismatch
+direct_result_backlink_mismatch
+direct_result_url_mismatch
 invalid_observed_metadata
 invalid_topic_category
 invalid_link_type
 invalid_link_rel
-invalid_correction_status
-correction_note_required
-invalid_manual_correction_payload
+result_already_recorded
 ```
 
-Unexpected storage or server errors use a route-specific `*_failed` code and a
-`500` status.
+Unexpected storage or server failures use route-specific `*_failed` codes with
+status `500`.
+
+## Legacy Campaign Routes
+
+Existing `/api/automation/campaigns/*` routes and `campaigns.json` remain for
+legacy diagnostics and existing local data. The v1 extension does not call
+them, and Campaign is not part of the primary LinkMaster navigation or direct
+processing workflow.
