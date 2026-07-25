@@ -3,9 +3,9 @@
 This contract defines the direct-processing boundary between LinkMaster and the
 Link Booster Chrome extension.
 
-The v1 extension does not create or execute Campaigns. It reads the first
-unprocessed backlink for a target website, handles it, immediately writes one
-terminal result, and then requests the next backlink.
+The v1 extension does not create or execute Campaigns. It processes one
+backlink at a time into a plugin-local execution list, lets the user review the
+terminal results and proposed metadata, then synchronizes that list explicitly.
 
 ## Transport And Authentication
 
@@ -52,8 +52,12 @@ successful JSON responses whose `apiVersion` is not `1`.
 | Method | Path | Access | Success |
 | --- | --- | --- | --- |
 | `GET` | `/api/automation/targets` | Bearer | `200`, target option array |
-| `GET` | `/api/automation/next?targetSite=...` | Bearer | `200`, direct Item context; or `204` |
-| `POST` | `/api/automation/results` | Bearer | `200`, saved direct record |
+| `POST` | `/api/automation/next` | Bearer | `200`, direct Item context; or `204` |
+| `POST` | `/api/automation/results/sync` | Bearer | `200`, saved result array |
+
+`GET /api/automation/next` and `POST /api/automation/results` remain available
+only for an already-installed extension version. New clients use the routes
+above.
 
 ## Target Options
 
@@ -77,10 +81,13 @@ returned by this endpoint.
 
 ## Next Backlink
 
-Request:
+Request (primary route):
 
-```text
-GET /api/automation/next?targetSite=https%3A%2F%2Fcsvviewer.net
+```json
+{
+  "targetSite": "https://csvviewer.net",
+  "excludeBacklinkIds": ["already-opened-backlink-id"]
+}
 ```
 
 Response:
@@ -99,7 +106,12 @@ Response:
     },
     "item": {
       "backlinkId": "backlink-id",
-      "url": "https://source.example/article"
+      "url": "https://source.example/article",
+      "originalMetadata": {
+        "topicCategory": "Technology",
+        "linkType": "UserName Link",
+        "linkRel": "Nofollow"
+      }
     }
   }
 }
@@ -114,29 +126,32 @@ that:
 
 When no candidate remains, the endpoint returns `204`.
 
-This endpoint is read-only. Repeated calls before a result is saved may return
-the same backlink. V1 intentionally has no Campaign, Run, batch, cursor, claim,
-or in-flight state.
+This endpoint is read-only. `excludeBacklinkIds` contains locally opened rows
+for the selected target and prevents a duplicate before synchronization. It is
+limited to 100 IDs. V1 intentionally has no Campaign, Run, server-side cursor,
+claim, or reload recovery.
 
-## Immediate Result
+## Reviewed Result Synchronization
 
 Request:
 
 ```json
 {
-  "targetSite": "https://csvviewer.net",
-  "backlinkId": "backlink-id",
-  "url": "https://source.example/article",
-  "status": "published",
-  "generatedComment": "Saved comment text",
-  "failureReason": "",
-  "observedMetadata": {
-    "topicCategory": "Technology",
-    "linkType": "UserName Link",
-    "linkRel": "Nofollow"
-  },
-  "submittedAt": "2026-07-25T04:00:00.000Z",
-  "verifiedAt": "2026-07-25T04:00:03.000Z"
+  "results": [{
+    "targetSite": "https://csvviewer.net",
+    "backlinkId": "backlink-id",
+    "url": "https://source.example/article",
+    "status": "published",
+    "generatedComment": "Saved comment text",
+    "failureReason": "",
+    "observedMetadata": {
+      "topicCategory": "Technology",
+      "linkType": "UserName Link",
+      "linkRel": "Nofollow"
+    },
+    "submittedAt": "2026-07-25T04:00:00.000Z",
+    "verifiedAt": "2026-07-25T04:00:03.000Z"
+  }]
 }
 ```
 
@@ -152,25 +167,27 @@ cannot_submit
 failed
 ```
 
-LinkMaster validates the target identity, backlink ID, exact stored backlink
-URL, terminal status, and observed metadata. It immediately:
+The extension keeps every opened backlink, including its execution state,
+comment summary, original metadata and editable proposed metadata locally.
+Only terminal, unsynchronized rows are sent when the user clicks Sync to
+LinkMaster. LinkMaster validates the entire request before it changes data. It
+then:
 
-1. overwrites explicit `link_category`, `link_type`, and `link_rel` values in
-   `backlinks.json`;
-2. appends the result to `records.json` using normalized
+1. appends all results to `records.json` using normalized
    `(targetSite, backlinkId)` as the business key; and
-3. returns the saved record.
+2. overwrites explicit `link_category`, `link_type`, and `link_rel` values in
+   `backlinks.json`; and
+3. returns the saved result array.
 
 Every terminal status is written to `records.json`. Therefore published,
 moderated, rejected, skipped, not-submittable, and failed backlinks are all
 considered processed for that target website and are not selected again.
 
-A repeated business-identical request is idempotent. A second request for the
-same key with a different status, URL, comment, failure reason, metadata, or
-submission/verification timestamp returns `409 result_already_recorded`.
-
-The extension must save a terminal result before requesting another backlink.
-If saving fails, it retains the result and offers Retry Save without advancing.
+A repeated business-identical request is idempotent. A conflicting existing
+record returns `409 result_already_recorded`. A batch whose same backlink has
+different explicit metadata for different targets returns
+`422 conflicting_backlink_metadata` before any write. A failed synchronization
+leaves the full local list intact for Retry Sync.
 
 ## Observed Metadata
 
@@ -230,13 +247,16 @@ Nofollow
 Unknown
 ```
 
-## Reload And Stop Semantics
+## Execution, Reload And Stop Semantics
 
-- If the extension reloads before saving a result, Start returns the first
-  unrecorded backlink again.
-- If saving succeeds but the response is lost, the next request skips that
-  backlink because the record exists.
-- Stop closes the extension's automation tab and does not mutate LinkMaster.
+- Each local row displays source URL, execution state, terminal status,
+  comment summary, original-to-proposed metadata, and a sync state of pending,
+  syncing, synced, or sync failed.
+- A terminal row does not write LinkMaster until Sync is clicked.
+- If the extension reloads before sync, its local list is intentionally lost;
+  Start returns LinkMaster's first unrecorded candidate.
+- Stop closes the automation tab, retains terminal review rows, and does not
+  mutate LinkMaster.
 - V1 does not prevent two extension instances from reading the same backlink.
 
 ## Privacy Boundary
@@ -276,6 +296,13 @@ invalid_topic_category
 invalid_link_type
 invalid_link_rel
 result_already_recorded
+invalid_direct_next_request
+invalid_exclude_backlink_ids
+direct_exclude_limit_exceeded
+invalid_direct_result_batch
+direct_result_batch_limit_exceeded
+duplicate_direct_result_key
+conflicting_backlink_metadata
 ```
 
 Unexpected storage or server failures use route-specific `*_failed` codes with

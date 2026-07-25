@@ -1,5 +1,10 @@
 # Direct Backlink Processing Design
 
+> Superseded for the active v1 workflow by
+> `2026-07-25-execution-review-sync-design.md`. Results are now reviewed in the
+> plugin execution list and explicitly synchronized, rather than written after
+> each individual backlink.
+
 ## Goal
 
 The Link Booster extension processes LinkMaster backlinks one at a time without
