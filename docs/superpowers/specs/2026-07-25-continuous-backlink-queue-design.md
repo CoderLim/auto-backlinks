@@ -1,75 +1,78 @@
-# Continuous Backlink Queue Design
+# Direct Backlink Processing Design
 
 ## Goal
 
-Remove manual Campaign creation from the user workflow. In the Link Booster side
-panel, the user selects a target website once and clicks Start. The extension
-then opens eligible backlink pages one at a time in stable LinkMaster order,
-while preserving manual submission review, pause, skip, result correction,
-deduplication, and interrupted-item recovery.
+The Link Booster extension processes LinkMaster backlinks one at a time without
+Campaigns, Runs, batches, requested counts, or deferred result archival.
 
-Campaign remains an internal LinkMaster persistence detail. It is not presented
-as a unit the user must create, size, complete, or understand.
+The user selects a target website and clicks Start. LinkMaster returns the first
+eligible backlink that has no matching processing record. After the current page
+reaches an outcome, the extension writes that result immediately and requests
+the next backlink.
 
-## Chosen Approach
+## V1 Data Model
 
-Use a bearer-authenticated queue facade backed by short internal Campaign
-batches.
+V1 uses two existing files:
 
-Alternatives considered:
+- `backlinks.json` is the ordered candidate pool and stores corrected observed
+  metadata.
+- `records.json` is the processed set for a target website.
 
-1. Remove Campaign and update backlinks and records for every browser step.
-   This creates multi-file partial-write risks and discards the tested state
-   machine and recovery behavior.
-2. Put every eligible backlink into one permanent Campaign. This gives simple
-   ordering, but makes every Item update rewrite an increasingly large JSON
-   document and delays metadata and record archival until the entire queue ends.
-3. Keep bounded Campaign batches behind a continuous queue API. This reuses the
-   current state machine and idempotent archival while removing Campaign from
-   the user experience.
+The idempotency key is the normalized pair:
 
-Option 3 is selected. It is the smallest reliable change for the GitHub JSON POC
-and keeps the future D1 migration boundary clear.
+```text
+(targetSite, backlinkId)
+```
 
-## User Experience
+The existence of a matching record means the backlink has already been handled
+for that target website, regardless of whether the outcome was published,
+moderated, rejected, skipped, or not submittable.
 
-### Link Booster
+Campaign and Campaign Item data are not read or written by the direct processing
+flow. Existing `campaigns.json` data remains untouched as legacy diagnostic
+history.
 
-- Rename the primary side-panel mode from Campaign to Automatic.
-- When no internal batch is active, show a target website selector populated by
-  LinkMaster. Only sites with a non-empty name and valid email are selectable.
-- When only one site is available, select it automatically.
-- Start requests the next queue Item. The user does not enter an Item count.
-- Continue using one dedicated browser tab.
-- Form inspection, automatic scrolling, comment generation, and form filling
-  remain automatic.
-- Comment submission remains an explicit user action during the POC.
-- Submit and Continue or Skip advances directly to the next queue Item.
-- Pause finishes the current state transition but does not open the next page.
-- Extension reload restores `inspecting`, `awaiting_review`, or `submitted`
-  state without generating or submitting twice.
-- Stop cancels only the current internal batch. Terminal and submitted Items are
-  not offered again; unprocessed or pre-submission Items may be selected in a
-  later run.
-- When no eligible Item remains, show that processing is complete and return to
-  the target selector.
+## User Flow
 
-### LinkMaster
+1. The side panel loads valid target websites from LinkMaster.
+2. The user selects one website. If only one valid website exists, it is selected
+   automatically.
+3. Start requests the next unprocessed backlink.
+4. The extension opens the page, scrolls to a detected form, generates a comment,
+   and fills the fields.
+5. When a form is fillable, the extension waits for the user to confirm
+   submission.
+6. Submit and Continue submits, verifies the visible result, immediately writes
+   the outcome to LinkMaster, and requests the next backlink.
+7. Skip immediately writes a `skipped` record and requests the next backlink.
+8. An automatically detected terminal failure such as no form, login required,
+   or CAPTCHA writes its result immediately and proceeds.
+9. Processing stops when LinkMaster returns no eligible backlink.
 
-- Remove the manual Campaign creation controls.
-- Keep the existing history and correction screen as an internal automation run
-  diagnostic view.
-- Rename user-facing Campaign navigation and headings to Automation Runs.
-- Existing Campaign JSON and APIs remain available for compatibility and
-  diagnostics, but the extension no longer requires a manually created one.
+There is no batch completion step and no delayed metadata or record write.
 
-## Queue API
+## Ordering And Eligibility
 
-All responses keep `apiVersion: 1`.
+LinkMaster scans `backlinks.json` in its existing array order and returns the
+first backlink that:
+
+- has an HTTP(S) URL with a non-root path;
+- is not marked `inaccessible` or `unsubmittable`; and
+- has no matching normalized `(targetSite, backlinkId)` in `records.json`.
+
+V1 does not shuffle candidates, sample historical links, infer domain-level
+behavior, retry failures, or rank by relevance.
+
+Because the result is persisted before requesting another backlink, the next
+request naturally advances through the ordered candidate pool.
+
+## Automation API
+
+All endpoints are bearer-authenticated and return `apiVersion: 1`.
 
 ### `GET /api/automation/targets`
 
-Bearer-authenticated. Returns only valid target identities needed for selection:
+Returns valid target website choices with only:
 
 ```json
 [
@@ -80,25 +83,15 @@ Bearer-authenticated. Returns only valid target identities needed for selection:
 ]
 ```
 
-Email, descriptions, credentials, GitHub details, and unrelated site data are
-not returned by this listing endpoint.
+Only sites with a non-empty name and valid email are listed. Email and other
+identity details are returned only with the selected Item execution context.
 
-### `POST /api/automation/queue/next`
+### `GET /api/automation/next?targetSite=...`
 
-Bearer-authenticated:
-
-```json
-{
-  "targetSite": "https://csvviewer.net"
-}
-```
-
-This is a POST because it may complete an internal batch and create another.
-It returns the existing next-item context:
+Returns `204` when no candidate remains. Otherwise:
 
 ```json
 {
-  "campaignId": "internal-batch-id",
   "targetSite": "https://csvviewer.net",
   "targetSiteSnapshot": {
     "name": "CSV Viewer",
@@ -108,120 +101,122 @@ It returns the existing next-item context:
     "description": ""
   },
   "item": {
-    "itemId": "item-id",
     "backlinkId": "backlink-id",
-    "url": "https://source.example/article",
-    "order": 1,
-    "status": "pending"
+    "url": "https://source.example/article"
   }
 }
 ```
 
-The target snapshot is returned only as part of the active execution context.
-The existing Item PATCH route remains the mutation endpoint.
+The endpoint is read-only. V1 accepts that repeated requests before a result is
+written may return the same backlink.
 
-Queue behavior:
+### `POST /api/automation/results`
 
-1. If an active internal or legacy Campaign exists for the requested target,
-   return its in-flight Item first, then its first pending Item.
-2. If an active Campaign belongs to another target, return
-   `409 active_target_conflict`.
-3. If the active Campaign is terminal, complete and archive it idempotently.
-4. Create the next internal batch from at most 30 eligible backlinks in
-   `backlinks.json` array order. The final batch may contain 1 through 29 Items.
-5. Return `204` when no eligible backlink remains.
-6. If the response is lost after creation, a repeated call returns the same
-   active Item instead of creating a duplicate batch.
+The extension writes one terminal result:
 
-The existing manually created active Campaign is treated as the first batch. It
-is never cancelled or rewritten during migration.
+```json
+{
+  "targetSite": "https://csvviewer.net",
+  "backlinkId": "backlink-id",
+  "url": "https://source.example/article",
+  "status": "published",
+  "generatedComment": "Saved comment text",
+  "failureReason": "",
+  "observedMetadata": {
+    "topicCategory": "Technology",
+    "linkType": "author_website",
+    "linkRel": "nofollow"
+  },
+  "submittedAt": "2026-07-25T04:00:00.000Z",
+  "verifiedAt": "2026-07-25T04:00:03.000Z"
+}
+```
 
-## Candidate Ordering And Deduplication
+Allowed terminal statuses remain:
 
-Automatic batches do not use the previous random 25/75 sampling rule. They scan
-`backlinks.json` in array order and take the first 30 eligible entries.
+- `published`
+- `pending_moderation`
+- `silent_reject`
+- `explicit_reject`
+- `skipped`
+- `cannot_submit`
+- `failed`
 
-An entry is excluded when:
+The server validates that the target and backlink exist and that the submitted
+URL matches the stored backlink URL. It then:
 
-- its status is `inaccessible` or `unsubmittable`;
-- it is not an HTTP(S) page URL or points at a domain/root path;
-- the backlink ID already has a record for the normalized target site;
-- a historical Campaign for the same normalized target site contains the same
-  backlink ID in a terminal status; or
-- a historical Campaign contains it as `submitted`, preventing duplicate
-  submission before verification.
+1. upserts the record by normalized `(targetSite, backlinkId)`;
+2. stores the outcome and timestamps in `records.json`;
+3. overwrites `link_category`, `link_type`, and `link_rel` in
+   `backlinks.json` when explicit observed values are present; and
+4. returns the saved record.
 
-Terminal failure, rejection, and skipped outcomes therefore stay skipped across
-automatic batches even though the current archive only adds `published` and
-`cannot_submit` results to `records.json`.
+Repeated identical writes are idempotent. A conflicting second terminal result
+returns `409 result_already_recorded`; V1 does not provide automatic correction
+through the extension.
 
-Cancelled pre-submission Items remain eligible. This lets Stop abandon the
-current batch without permanently discarding pages the extension never
-submitted.
+## Reload And Failure Semantics
 
-## Persistence And Recovery
+V1 intentionally has no in-flight recovery state.
 
-Each internal batch uses the existing Campaign and Item schema. The maximum
-batch size remains 30 to limit JSON rewrite size.
+- If the extension reloads before a result is written, Start returns the same
+  unprocessed backlink from the beginning of the scan.
+- If the result write succeeds but the response is lost, the next request skips
+  that backlink because its record already exists.
+- If result persistence fails, the extension does not request another backlink
+  and shows Retry Save.
+- Only one extension executor is assumed. V1 does not implement leases or
+  concurrent claims.
 
-When a batch becomes terminal, LinkMaster reuses
-`completeStoredCampaign()`:
+## UI Changes
 
-1. apply observed metadata corrections to `backlinks.json`;
-2. archive supported final results into `records.json`;
-3. mark the internal Campaign completed;
-4. create the next batch on the same queue request.
+Link Booster:
 
-These operations remain idempotent. No migration or rewrite of current
-`campaigns.json` is required.
+- rename Campaign to Automatic;
+- add the target website selector;
+- remove Campaign ID, Item count, Campaign complete, and Campaign cancel
+  concepts;
+- retain Start, Pause, Submit and Continue, Skip, result details, and Retry Save;
+- show processed outcome and current source URL without exposing internal data.
 
-Only one active batch and one extension executor are supported in the POC.
-Cloudflare D1 should later replace JSON-wide rewrites with transactional queue
-claims and per-Item rows.
+LinkMaster:
 
-## Error Handling
-
-- Invalid or incomplete target identity: `422 invalid_target_site_identity`.
-- Target does not exist: `404 target_site_not_found`.
-- Another target owns the active batch: `409 active_target_conflict`.
-- Authentication failure: stop processing and keep the current UI state.
-- LinkMaster persistence failure: do not open another page; allow retry.
-- Unsupported page, login, CAPTCHA, rejection, and verification outcomes retain
-  the current terminal classifications.
-- Queue creation conflict from two concurrent requests is recovered by rereading
-  the active batch and returning it when its target matches.
+- remove Campaign from primary navigation;
+- keep the legacy Campaign page and APIs temporarily for existing data, but do
+  not use them in the new flow;
+- Records becomes the primary processing history.
 
 ## Test Coverage
 
 LinkMaster:
 
-- valid targets expose only name and normalized domain;
-- invalid identities are omitted;
-- automatic selection is stable and ordered;
-- final batches smaller than five are accepted;
-- records and historical terminal/submitted Items are excluded;
-- cancelled pending/pre-submission Items remain eligible;
-- active legacy and interrupted Items resume;
-- terminal batches complete before the next batch is created;
-- repeated queue requests return the same Item;
-- active target conflicts do not mutate data;
-- zero candidates returns `204`.
+- target listing omits incomplete identities and private fields;
+- next selection follows `backlinks.json` order;
+- root URLs, inaccessible/unsubmittable entries, and existing records are
+  skipped;
+- equivalent target URL forms deduplicate;
+- no candidate returns `204`;
+- result writes validate target, backlink, URL, status, and metadata;
+- record upsert and backlink metadata overwrite are idempotent;
+- a conflicting result returns `409`.
 
 Link Booster:
 
-- target listing and queue-next requests use Bearer authentication;
-- POST requests are not automatically retried;
-- one available target is selected automatically;
-- an active Item resumes without queue creation assumptions;
-- Start, Submit and Continue, Skip, Pause, Stop, and reload keep current behavior;
-- queue exhaustion returns to an idle completed state;
-- user-facing Campaign terminology is removed.
+- target and next requests use bearer authentication;
+- one target is selected automatically;
+- Start opens the returned Item;
+- Submit, Skip, and automatic terminal outcomes save before advancing;
+- a save failure blocks advancement and supports Retry Save;
+- reload starts again from LinkMaster's first unrecorded backlink;
+- no user-facing Campaign or batch terminology remains.
 
 ## Out Of Scope
 
-- unattended automatic clicking of the final Submit button;
-- parallel tabs or multiple extension executors;
-- automatic retry of rejected, failed, or skipped backlinks;
-- domain-level failure inference;
+- Campaign migration or deletion;
+- browser-reload recovery before a result is saved;
+- concurrent executors and Item leases;
+- automatic retry;
+- domain-level failure rules;
+- unattended final Submit clicks;
 - relevance filtering;
-- replacing GitHub JSON with D1 in this change.
+- D1 migration.
