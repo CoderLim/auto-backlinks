@@ -86,10 +86,15 @@ Request (primary route):
 ```json
 {
   "targetSite": "https://csvviewer.net",
-  "excludeBacklinkIds": ["already-opened-backlink-id"]
+  "excludeBacklinkIds": ["already-opened-backlink-id"],
+  "includeDeferred": false
 }
 ```
 
+`includeDeferred` is optional and defaults to `false`. When `true`, backlinks
+whose only matching record is `deferred` are eligible again for this target.
+`skipped` and other non-deferred terminal records are never resurfaced by this
+flag.
 Response:
 
 ```json
@@ -165,8 +170,13 @@ explicit_reject
 skipped
 cannot_submit
 failed
+deferred
 ```
 
+`deferred` is a soft skip: it does not change backlink `status`, and a later
+terminal result for the same `(targetSite, backlinkId)` may replace it. Other
+terminal statuses remain idempotent; a conflicting existing non-deferred record
+returns `409 result_already_recorded`.
 The extension keeps every opened backlink, including its execution state,
 comment summary, original metadata and editable proposed metadata locally.
 Only terminal, unsynchronized rows are sent when the user clicks Sync to
