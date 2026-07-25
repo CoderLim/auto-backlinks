@@ -60,6 +60,11 @@ Clients must reject successful JSON responses whose `apiVersion` is not `1`.
 | `POST` | `/api/automation/campaigns/:id/complete` | Admin or Bearer | `200`, completed Campaign |
 | `POST` | `/api/automation/campaigns/:id/cancel` | Admin or Bearer | `200`, cancelled Campaign |
 
+`GET /api/automation/campaigns/:id/next` prioritizes an in-flight
+`inspecting`, `awaiting_review`, or `submitted` Item before returning the first
+`pending` Item. This allows an extension reload to resume work without resetting
+state or submitting a comment twice.
+
 `GET /api/automation/campaigns` returns `403 admin_scope_required` when
 presented with only a valid executor bearer token.
 
@@ -70,11 +75,11 @@ Request:
 ```json
 {
   "targetSite": "https://product.example/path",
-  "count": 20
+  "count": 5
 }
 ```
 
-`count` must be an integer from 20 through 30. LinkMaster resolves
+`count` must be an integer from 5 through 30. LinkMaster resolves
 `targetSite` against its stored site identities and snapshots `name`, normalized
 `domain`, `email`, `tagline`, and `description`. A site without a non-empty name
 and valid email is rejected.

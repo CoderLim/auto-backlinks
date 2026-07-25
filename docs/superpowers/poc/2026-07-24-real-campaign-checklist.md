@@ -10,16 +10,17 @@ external comment until every preflight item is checked.
 
 - [x] LinkMaster migration rehearsal passed on copied data.
 - [x] LinkMaster API contract smoke passed.
-- [x] LinkMaster test suite passed: 76 tests.
-- [x] Link Booster test suite passed: 62 tests.
+- [x] LinkMaster test suite passed: 77 tests.
+- [x] Link Booster test suite passed: 65 tests.
 - [x] Link Booster production build and package passed.
 - [x] One target site has a non-empty name and valid email.
 - [x] Extension UI and content-script boundary passed in normal Chrome.
 - [ ] A non-development automation token is configured.
 - [ ] Production JSON backup and hashes are recorded.
-- [x] No active Campaign exists.
+- [ ] No active Campaign exists.
 
-The first two unchecked items currently prevent a real Campaign.
+The current 20-Item diagnostic Campaign must finish or be cancelled before a
+new 5-Item Campaign can be created.
 
 ## Build Locations
 
@@ -44,7 +45,7 @@ Packaged extension:
 Expected ZIP SHA-256:
 
 ```text
-ef34e26523b3c8b248061f26da026942666fca49cf2862cc5d0d654993f4104a
+da7b3e7e596a88d8761719311525ff2794095c9da5d78633cdfa28ed513627df
 ```
 
 ## Chrome Acceptance
@@ -164,6 +165,10 @@ For each Item:
 6. If the target is in the body, confirm the format is proven by the page.
 7. Click Submit and Continue once, or Skip.
 8. Wait for LinkMaster to save the result before the next Item opens.
+
+After an extension reload, Start must resume an existing `inspecting` or
+`awaiting_review` Item. A saved `submitted` Item may resume verification but
+must never click Submit again.
 
 The executor does not solve CAPTCHA, bypass login, submit automatically, or
 retry a mutation. A save error must leave the current result available for
