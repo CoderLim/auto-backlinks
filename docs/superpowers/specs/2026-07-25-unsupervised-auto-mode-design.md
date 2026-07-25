@@ -38,11 +38,13 @@ enabled (the four status marks stay hidden or disabled).
 
 After inspect:
 
-- If `supported && !requiresLogin`: generate comment (if needed), fill, submit,
+- If `supported && !requiresLogin && !hasCaptcha`: generate comment (if needed), fill, submit,
   verify, write the verification terminal status into the local checklist
   (`published` / `pending_moderation` / `silent_reject` / `explicit_reject` /
   `failed`), then advance.
 - Otherwise: mark **`deferred`** on the checklist row, clear current, advance.
+  This includes visible CAPTCHA / reCAPTCHA / hCaptcha challenges
+  (`hasCaptcha`).
 
 Do not call `awaitOperatorOutcome` / wait for **提交并继续** while auto is
 running.
