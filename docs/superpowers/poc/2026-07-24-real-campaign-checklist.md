@@ -8,19 +8,19 @@ Campaign or choose an Item count.
 LinkMaster:
 
 ```text
-/Users/coderlim/Projects/link-master/.worktrees/auto-backlink-campaign-control-plane
+/Users/coderlim/Projects/link-master
 ```
 
 Unpacked Link Booster extension:
 
 ```text
-/Users/coderlim/Projects/link-booster-extension/.worktrees/auto-backlink-campaign-executor/build/chrome-mv3-prod
+/Users/coderlim/Projects/link-booster-extension/build/chrome-mv3-prod
 ```
 
 Packaged extension:
 
 ```text
-/Users/coderlim/Projects/link-booster-extension/.worktrees/auto-backlink-campaign-executor/build/chrome-mv3-prod.zip
+/Users/coderlim/Projects/link-booster-extension/build/chrome-mv3-prod.zip
 ```
 
 The ZIP SHA-256 is generated during the final package verification.
