@@ -192,6 +192,8 @@ then:
 Every terminal status is written to `records.json`. Therefore published,
 moderated, rejected, skipped, not-submittable, and failed backlinks are all
 considered processed for that target website and are not selected again.
+`deferred` is excluded by default and only returns when `includeDeferred` is
+true.
 
 A repeated business-identical request is idempotent. A conflicting existing
 record returns `409 result_already_recorded`. A batch whose same backlink has
