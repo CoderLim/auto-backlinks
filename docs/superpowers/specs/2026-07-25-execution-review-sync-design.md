@@ -1,6 +1,8 @@
 # Execution Review And Sync Design
 
-## Goal
+> Superseded for confirmation and mid-flight editing behavior by
+> `2026-07-25-confirmation-first-execution-design.md`. The local execution list
+> and explicit Sync model below remain the base.
 
 An Automatic execution keeps every opened backlink in a visible, plugin-local
 review list. LinkMaster is updated only when the user clicks Sync to LinkMaster.
