@@ -11,7 +11,7 @@ checked.
 - [x] LinkMaster migration rehearsal passed on copied data.
 - [x] LinkMaster API contract smoke passed.
 - [x] LinkMaster test suite passed: 75 tests.
-- [x] Link Booster test suite passed: 60 tests.
+- [x] Link Booster test suite passed: 62 tests.
 - [x] Link Booster production build and package passed.
 - [x] One target site has a non-empty name and valid email.
 - [x] Extension UI and content-script boundary passed in normal Chrome.
@@ -44,7 +44,7 @@ Packaged extension:
 Expected ZIP SHA-256:
 
 ```text
-bb1b04fb3344e5c6338f8653f92fb5889c10ef39d250d66375bfadcc4c3f9cb3
+ef34e26523b3c8b248061f26da026942666fca49cf2862cc5d0d654993f4104a
 ```
 
 ## Chrome Acceptance
@@ -155,7 +155,8 @@ backlink data.
 For each Item:
 
 1. Start or continue the Campaign in the side panel.
-2. Wait for the dedicated tab to finish navigation.
+2. Wait for the dedicated tab to finish navigation and scroll to the detected
+   comment form.
 3. Review the detected form, link type, link rel, and category.
 4. Review every filled identity field and the 1-3 sentence comment.
 5. If the page has a Website URL field, confirm the body contains no target
