@@ -2,15 +2,15 @@
 
 Date prepared: 2026-07-24
 
-This checklist separates Chrome acceptance from the first real 20-30 Item
-Campaign. Do not submit an external comment until every preflight item is
-checked.
+This checklist separates Chrome acceptance from the first test Campaign. During
+the POC, LinkMaster defaults to 5 Items and accepts 5-30. Do not submit an
+external comment until every preflight item is checked.
 
 ## Current Gate
 
 - [x] LinkMaster migration rehearsal passed on copied data.
 - [x] LinkMaster API contract smoke passed.
-- [x] LinkMaster test suite passed: 75 tests.
+- [x] LinkMaster test suite passed: 76 tests.
 - [x] Link Booster test suite passed: 62 tests.
 - [x] Link Booster production build and package passed.
 - [x] One target site has a non-empty name and valid email.
@@ -140,7 +140,7 @@ Stop if:
 
 - [ ] LinkMaster reports no active Campaign.
 - [ ] Select exactly one completed target site identity.
-- [ ] Choose 20-30 Items.
+- [ ] Choose 5 Items for the next test Campaign.
 - [ ] Confirm the generated fixed list contains no root URL.
 - [ ] Confirm it contains no `inaccessible` or `unsubmittable` backlink.
 - [ ] Confirm no duplicate backlink ID is present.

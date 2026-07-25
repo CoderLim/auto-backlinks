@@ -93,7 +93,7 @@ Required fields:
 | `campaignId` | string |
 | `targetSite` | normalized HTTP(S) URL string |
 | `targetSiteSnapshot` | TargetSiteSnapshot |
-| `requestedCount` | integer, 20-30 |
+| `requestedCount` | integer, 5-30 |
 | `status` | `active`, `completed`, or `cancelled` |
 | `items` | Item array |
 | `createdAt`, `updatedAt` | ISO date-time strings |
