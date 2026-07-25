@@ -2,6 +2,10 @@
 
 Date: 2026-07-25
 
+> **Status:** Removed from the Automatic side panel (2026-07-25). The unsupervised
+> **自动** control and auto-run loop are not shipping; keep this note for future
+> revival. Manual **开始** + status actions (including **跳过** → `deferred`) remain.
+
 ## Goal
 
 Add an **自动** control next to **跳过** that runs the queue without waiting for
