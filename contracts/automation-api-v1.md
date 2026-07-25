@@ -63,7 +63,8 @@ above.
 ## Target Options
 
 `GET /api/automation/targets` returns only sites with a non-empty name and valid
-email. The listing exposes only selection fields:
+email. The listing exposes selection fields used by the extension, including
+commenter email for form fill:
 
 ```json
 {
@@ -71,13 +72,14 @@ email. The listing exposes only selection fields:
   "data": [
     {
       "name": "CSV Viewer",
-      "domain": "https://csvviewer.net"
+      "domain": "https://csvviewer.net",
+      "email": "comment@csvviewer.net"
     }
   ]
 }
 ```
 
-Email, descriptions, credentials, GitHub data, and unrelated site data are not
+Descriptions, credentials, GitHub data, and unrelated site data are not
 returned by this endpoint.
 
 ## Published Stats
