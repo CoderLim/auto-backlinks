@@ -11,7 +11,7 @@ checked.
 - [x] LinkMaster migration rehearsal passed on copied data.
 - [x] LinkMaster API contract smoke passed.
 - [x] LinkMaster test suite passed: 75 tests.
-- [x] Link Booster test suite passed: 56 tests.
+- [x] Link Booster test suite passed: 57 tests.
 - [x] Link Booster production build and package passed.
 - [ ] One target site has a non-empty name and valid email.
 - [ ] Extension UI and content-script boundary passed in normal Chrome.
@@ -44,7 +44,7 @@ Packaged extension:
 Expected ZIP SHA-256:
 
 ```text
-d035ac07aff6067e3fcecf494d30ec6ce258e3c22bc43b7f54a00d3ee329b24c
+0c26255ecd01a3d0fb8711179eee404effedca9746fc15f6045f74db8a3f01c9
 ```
 
 ## Chrome Acceptance
