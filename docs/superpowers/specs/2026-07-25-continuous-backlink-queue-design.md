@@ -58,8 +58,8 @@ There is no batch completion step and no delayed metadata or record write.
 
 ## Ordering And Eligibility
 
-LinkMaster scans `backlinks.json` in its existing array order and returns the
-first backlink that:
+LinkMaster scans `backlinks.json` from the end of its existing array and returns
+the last backlink that:
 
 - has an HTTP(S) URL with a non-root path;
 - is not marked `inaccessible` or `unsubmittable`; and
@@ -69,7 +69,7 @@ V1 does not shuffle candidates, sample historical links, infer domain-level
 behavior, retry failures, or rank by relevance.
 
 Because the result is persisted before requesting another backlink, the next
-request naturally advances through the ordered candidate pool.
+request naturally advances backward through the ordered candidate pool.
 
 ## Automation API
 
