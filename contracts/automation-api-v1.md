@@ -140,6 +140,7 @@ Response:
       "url": "https://source.example/article",
       "originalMetadata": {
         "topicCategory": "Technology",
+        "topicCategoryConfirmed": true,
         "linkType": "UserName Link",
         "linkRel": "Nofollow"
       }
@@ -147,6 +148,11 @@ Response:
   }
 }
 ```
+
+`originalMetadata.topicCategoryConfirmed` maps to backlink `topic_category_confirmed`
+（分类已确认）. When `true`, clients must not re-run topic classification for that
+backlink. LinkMaster resolves missing flags with a legacy soft-default: an
+approved non-`Unknown` `link_category` is treated as confirmed.
 
 LinkMaster scans `backlinks.json` in array order and returns the first entry
 that:
