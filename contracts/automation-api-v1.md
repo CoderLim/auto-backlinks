@@ -55,6 +55,9 @@ successful JSON responses whose `apiVersion` is not `1`.
 | `GET` | `/api/automation/stats/published` | Bearer | `200`, `{ count }` for a day window |
 | `POST` | `/api/automation/next` | Bearer | `200`, direct Item context; or `204` |
 | `POST` | `/api/automation/results/sync` | Bearer | `200`, saved result array |
+| `POST` | `/api/automation/candidates/next` | Bearer | `200`, candidate context; or `204` |
+| `POST` | `/api/automation/candidates/admit` | Bearer | `200`, admitted backlink |
+| `POST` | `/api/automation/candidates/reject` | Bearer | `200`, `{ id }` removed |
 
 `GET /api/automation/next` and `POST /api/automation/results` remain available
 only for an already-installed extension version. New clients use the routes
@@ -303,6 +306,89 @@ Unknown
   mutate LinkMaster.
 - V1 does not prevent two extension instances from reading the same backlink.
 
+## Candidate Intake
+
+Staging file: `data/json/backlink-candidates.json`. Imports land here until the
+extension Intake tab admits a candidate into `backlinks.json`. Candidate routes
+do not write `records.json` and do not publish comments.
+
+### Next Candidate
+
+`POST /api/automation/candidates/next` body:
+
+```json
+{ "excludeIds": ["optional-already-opened-candidate-id"] }
+```
+
+`excludeIds` is optional and defaults to `[]`.
+
+Success:
+
+```json
+{
+  "apiVersion": 1,
+  "data": {
+    "item": {
+      "id": "candidate-uuid",
+      "url": "https://source.example/article",
+      "dr": "42",
+      "importSource": "ahrefs",
+      "importTarget": "example.com"
+    }
+  }
+}
+```
+
+LinkMaster scans `backlink-candidates.json` **end-to-front** (newest first),
+skips ids listed in `excludeIds`, and returns `204 No Content` when none remain.
+
+### Admit Candidate
+
+`POST /api/automation/candidates/admit` body:
+
+```json
+{
+  "id": "candidate-uuid",
+  "linkType": "UserName Link",
+  "linkRel": "Nofollow",
+  "linkCategory": "Technology",
+  "autoComment": "ready",
+  "topicCategoryConfirmed": true
+}
+```
+
+`autoComment` defaults to `ready` when omitted. `topicCategoryConfirmed`
+defaults to `false` when omitted. Enums match existing observed-metadata
+validation (`linkType`, `linkRel`, `linkCategory` / topic categories,
+`autoComment`).
+
+Success `200` returns the backlink object written to `backlinks.json`. If the
+candidate URL already exists in `backlinks.json`, LinkMaster removes the staging
+row only and returns the existing backlink (idempotent). Admit never writes
+`records.json`.
+
+### Reject Candidate
+
+`POST /api/automation/candidates/reject` body:
+
+```json
+{ "id": "candidate-uuid" }
+```
+
+Success:
+
+```json
+{
+  "apiVersion": 1,
+  "data": { "id": "candidate-uuid" }
+}
+```
+
+Reject removes the staging row only.
+
+Missing candidate id → `404` `candidate_not_found`. Invalid metadata enums or
+malformed admit/reject bodies → `422`.
+
 ## Privacy Boundary
 
 Automation responses and committed evidence must not contain keys named:
@@ -347,6 +433,10 @@ invalid_direct_result_batch
 direct_result_batch_limit_exceeded
 duplicate_direct_result_key
 conflicting_backlink_metadata
+candidate_not_found
+invalid_admit_request
+invalid_reject_request
+invalid_auto_comment
 ```
 
 Unexpected storage or server failures use route-specific `*_failed` codes with
