@@ -1,1 +1,4 @@
 .superpowers/
+
+# Local feature worktrees
+.worktrees/
