@@ -105,7 +105,8 @@ Response:
 }
 ```
 
-Only `published` and `pending_moderation` records are counted. Activity time is
+`published`, `pending_moderation`, and `not_visible_after_submit` records are
+counted. Activity time is
 `verifiedAt ?? submittedAt ?? updatedAt ?? createdAt`.
 
 ## Next Backlink
@@ -200,7 +201,7 @@ Allowed terminal statuses:
 ```text
 published
 pending_moderation
-silent_reject
+not_visible_after_submit
 explicit_reject
 skipped
 cannot_submit

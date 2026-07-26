@@ -235,7 +235,7 @@ Allow:
 pending -> inspecting
 inspecting -> awaiting_review | cannot_submit | failed | skipped
 awaiting_review -> submitted | skipped | failed
-submitted -> published | pending_moderation | silent_reject | explicit_reject | failed
+submitted -> published | pending_moderation | not_visible_after_submit | explicit_reject | failed
 ```
 
 Reject all transitions out of terminal states.
@@ -248,7 +248,7 @@ Implement the transition guard directly:
 
 ```js
 export const ITEM_TERMINAL_STATUSES = new Set([
-  'published', 'pending_moderation', 'silent_reject',
+  'published', 'pending_moderation', 'not_visible_after_submit',
   'explicit_reject', 'skipped', 'cannot_submit', 'failed'
 ]);
 
@@ -259,7 +259,7 @@ const ALLOWED_TRANSITIONS = {
   submitted: new Set([
     'published',
     'pending_moderation',
-    'silent_reject',
+    'not_visible_after_submit',
     'explicit_reject',
     'failed'
   ])

@@ -44,7 +44,7 @@ After inspect:
 
 - If `supported && !requiresLogin && !hasCaptcha`: generate comment (if needed), fill, submit,
   verify, write the verification terminal status into the local checklist
-  (`published` / `pending_moderation` / `silent_reject` / `explicit_reject` /
+  (`published` / `pending_moderation` / `not_visible_after_submit` / `explicit_reject` /
   `failed`), then advance.
 - Otherwise: mark **`deferred`** on the checklist row, clear current, advance.
   This includes visible CAPTCHA / reCAPTCHA / hCaptcha challenges

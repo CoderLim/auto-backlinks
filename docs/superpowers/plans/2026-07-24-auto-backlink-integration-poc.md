@@ -153,7 +153,7 @@ Record:
 
 - [ ] **Step 3: Rehearse idempotent completion**
 
-Use a synthetic Campaign containing one `published`, one `cannot_submit`, and one `silent_reject` Item. Complete it twice and verify:
+Use a synthetic Campaign containing one `published`, one `cannot_submit`, and one `not_visible_after_submit` Item. Complete it twice and verify:
 
 - backlinks and records are byte-identical after the second completion;
 - only the first two outcomes are archived in records;

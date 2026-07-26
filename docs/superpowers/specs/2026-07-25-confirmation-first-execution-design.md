@@ -37,7 +37,7 @@ Field name in payloads and storage: `autoComment`.
 
 `autoComment` describes the backlink's automation fitness. Per-target execution
 outcomes continue to live in `records.json` via the existing terminal statuses
-(`published`, `pending_moderation`, `silent_reject`, `explicit_reject`,
+(`published`, `pending_moderation`, `not_visible_after_submit`, `explicit_reject`,
 `skipped`, `cannot_submit`, `failed`).
 
 ## Runner Behavior

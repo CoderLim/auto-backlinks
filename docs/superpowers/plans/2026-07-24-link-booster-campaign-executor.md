@@ -87,7 +87,7 @@ export type CampaignItemStatus =
   | "submitted"
   | "published"
   | "pending_moderation"
-  | "silent_reject"
+  | "not_visible_after_submit"
   | "explicit_reject"
   | "skipped"
   | "cannot_submit"
@@ -294,7 +294,7 @@ submit(document: Document): SubmitResult
 verify(document: Document, payload: VerifyPayload): VerificationResult
 ```
 
-`verify` returns exactly one of `published`, `pending_moderation`, `explicit_reject`, or `silent_reject`; `published` requires both normalized comment text and the adjacent target link.
+`verify` returns exactly one of `published`, `pending_moderation`, `explicit_reject`, or `not_visible_after_submit`; `published` requires both normalized comment text and the adjacent target link.
 
 - [ ] **Step 3: Replace message handling**
 

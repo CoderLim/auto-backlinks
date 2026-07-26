@@ -67,7 +67,7 @@ POC 只按具体候选页面建模：
 - 用户只需选择目标网站、输入本轮处理数量并启动 Campaign。
 - POC 处理数量限制为 20 至 30 条。
 - 数量表示本轮要处理的候选数，不表示最终成功发布数。
-- `silent_reject`、`cannot_submit`、`skipped` 和 `failed` 都计入处理数量，不自动补充候选。
+- `not_visible_after_submit`、`cannot_submit`、`skipped` 和 `failed` 都计入处理数量，不自动补充候选。
 - 系统从该目标网站尚未提交过的候选页面中生成固定 Campaign Items。
 - Campaign Items 按约 25% 有历史提交记录、75% 无历史记录候选组成。
 - 一期不判断候选页面行业与目标网站主题是否相关，也不以相关性低为由跳过。
@@ -116,7 +116,7 @@ POC 完成不等于系统已经可以规模化运行。POC 的完成标准是：
 
 - 20 至 30 条候选全部得到明确结果，不遗留无法解释的中间状态。
 - 没有对同一 `(targetSite, backlinkId)` 重复提交。
-- 能统计页面可访问率、评论页识别率、表单识别率、填充成功率、人工接管原因、静默失败率和最终提交结果。
+- 能统计页面可访问率、评论页识别率、表单识别率、填充成功率、人工接管原因、提交后不可见率和最终提交结果。
 - 用户可以检查生成评论后手动提交每个候选页面。
 - 所有 Item 结果都保存到 Campaign；确认 `published` 或 `cannot_submit` 的结果能与现有 LinkMaster 记录关联。
 - POC 结束后，根据实际成功率、人工耗时和失败分类决定是否进入 D1 阶段。
@@ -293,7 +293,7 @@ POC 的最小 Item 状态为：
 - `submitted`：已触发提交，等待判断即时结果。
 - `published`：已经确认评论或外链在最终页面可见。
 - `pending_moderation`：页面明确提示正在等待审核。
-- `silent_reject`：提交后不可见，也没有审核提示。
+- `not_visible_after_submit`：提交后不可见，也没有审核提示。
 - `explicit_reject`：页面明确拒绝提交。
 - `skipped`：用户主动跳过或规则判定不相关。
 - `cannot_submit`：确认该页面无法提交。
@@ -301,7 +301,7 @@ POC 的最小 Item 状态为：
 
 `submitted` 与 `published` 必须分开。点击提交按钮或收到成功响应只能进入 `submitted`；看到审核提示进入 `pending_moderation`；只有在页面上确认目标链接可见后才能进入 `published`。
 
-POC 不研究单站静默失败的根因，也不在同一 Campaign 中重试。`silent_reject` 只作为当前 Item 的结果，不推导同一域名下其他页面的可提交性。
+POC 不研究单站提交后不可见的根因，也不在同一 Campaign 中重试。`not_visible_after_submit` 只作为当前 Item 的结果，不推导同一域名下其他页面的可提交性。
 
 提交后的即时结果判定：
 
@@ -309,7 +309,7 @@ POC 不研究单站静默失败的根因，也不在同一 Campaign 中重试。
 2. 找到对应评论，并确认其用户名链接或正文链接指向当前目标网站，标记 `published`。
 3. 页面明确提示评论等待审核，标记 `pending_moderation`。
 4. 页面明确显示校验错误、反垃圾提示或拒绝信息，标记 `explicit_reject`。
-5. 页面稳定后仍找不到对应评论，也没有审核提示或明确错误，标记 `silent_reject`。
+5. 页面稳定后仍找不到对应评论，也没有审核提示或明确错误，标记 `not_visible_after_submit`。
 
 只找到相同评论文字但没有目标链接，不能判定为 `published`。POC 不做数小时或数天后的自动复查；LinkMaster 允许用户人工修正最终状态和备注，但人工修正不会重新触发表单提交。
 
@@ -405,7 +405,7 @@ GitHub 中只保存足够诊断和迁移的数据：
 - 表单识别结果
 - `observedMetadata` 和实际链接放置方式
 - 提交反馈摘要
-- 标准化结果：`published`、`pending_moderation`、`silent_reject`、`explicit_reject`、`cannot_submit`、`skipped` 或 `failed`
+- 标准化结果：`published`、`pending_moderation`、`not_visible_after_submit`、`explicit_reject`、`cannot_submit`、`skipped` 或 `failed`
 - `createdAt`、`startedAt`、`completedAt`
 
 截图只保存在本地扩展存储或用户明确选择的目录中。POC 不实现云端证据存储。
@@ -423,7 +423,7 @@ GitHub 中只保存足够诊断和迁移的数据：
 - 大规模重试调度和退避队列
 - 自动登录、验证码代解、代理池和账号管理
 - 发布后定时复查和搜索引擎索引验证
-- 单站静默失败的自动根因分析
+- 单站提交后不可见的自动根因分析
 - `opencli` 导入和自动发现竞品外链
 - 目录站、产品提交站、论坛和社区执行器
 - 完整截图、录像和模型调用追踪
@@ -487,7 +487,7 @@ D1 阶段保留现有 `itemId` 和 `(targetSite, backlinkId)` 幂等键，并将
 - `UserName Link`、`Text Link`、`HTML Link`、`Markdown Link` 和 `BBCode Link` 证据检测。
 - 无评论表单、登录要求、验证码和不支持页面。
 - 评论语言、长度、具体内容引用和一次重生成规则。
-- 发布可见、等待审核、明确拒绝和静默失败判定。
+- 发布可见、等待审核、明确拒绝和提交后不可见判定。
 - API 鉴权、活动 Campaign、下一 Item 和结果回写。
 
 ### 8.3 人工 POC

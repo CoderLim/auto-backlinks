@@ -97,11 +97,11 @@ pnpm test -- \
 ```
 
 The LinkMaster suite ran 7 test files and 75 tests with 0 failures. Its
-synthetic Campaign includes `published`, `cannot_submit`, `silent_reject`, and
+synthetic Campaign includes `published`, `cannot_submit`, `not_visible_after_submit`, and
 `pending_moderation` outcomes and verifies:
 
 - only `published` and `cannot_submit` create or update records;
-- `silent_reject` remains a Campaign result but is not archived;
+- `not_visible_after_submit` remains a Campaign result but is not archived;
 - explicit `topicCategory`, `linkType`, and `linkRel` overwrite their matching
   backlink fields;
 - `Unknown` values leave existing metadata unchanged;

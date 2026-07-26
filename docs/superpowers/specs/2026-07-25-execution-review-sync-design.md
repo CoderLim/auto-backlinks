@@ -17,7 +17,7 @@ The side panel adds an entry as soon as it opens a backlink. Each entry shows:
 - live execution state: `opened`, `inspecting`, `generating`,
   `awaiting_review`, `submitting`, `verifying`, or a terminal result;
 - terminal result when available: `published`, `pending_moderation`,
-  `silent_reject`, `explicit_reject`, `skipped`, `cannot_submit`, or `failed`;
+  `not_visible_after_submit`, `explicit_reject`, `skipped`, `cannot_submit`, or `failed`;
 - generated comment summary;
 - original and proposed `link_category`, `link_type`, and `link_rel` values;
 - sync state: pending, syncing, synced, or sync failed.

@@ -50,7 +50,7 @@ it('defines the supported terminal statuses including deferred', () => {
   expect(DIRECT_TERMINAL_STATUSES).toEqual([
     'published',
     'pending_moderation',
-    'silent_reject',
+    'not_visible_after_submit',
     'explicit_reject',
     'skipped',
     'cannot_submit',
@@ -491,7 +491,7 @@ Expected: FAIL — `deferred` not in review/status unions or mapped to `skipped`
 export type DirectResultStatus =
   | "published"
   | "pending_moderation"
-  | "silent_reject"
+  | "not_visible_after_submit"
   | "explicit_reject"
   | "skipped"
   | "cannot_submit"

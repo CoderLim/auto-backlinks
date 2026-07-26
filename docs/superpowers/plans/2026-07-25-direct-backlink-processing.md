@@ -109,7 +109,7 @@ Export constants and pure functions:
 export const DIRECT_RESULT_STATUSES = Object.freeze([
   'published',
   'pending_moderation',
-  'silent_reject',
+  'not_visible_after_submit',
   'explicit_reject',
   'skipped',
   'cannot_submit',
