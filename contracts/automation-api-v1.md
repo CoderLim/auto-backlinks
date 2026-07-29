@@ -117,7 +117,9 @@ Request (primary route):
 {
   "targetSite": "https://csvviewer.net",
   "excludeBacklinkIds": ["already-opened-backlink-id"],
-  "includeDeferred": false
+  "includeDeferred": false,
+  "todayFrom": "2026-07-25T00:00:00.000Z",
+  "todayTo": "2026-07-26T00:00:00.000Z"
 }
 ```
 
@@ -125,6 +127,10 @@ Request (primary route):
 whose only matching record is `deferred` are eligible again for this target.
 `skipped` and other non-deferred terminal records are never resurfaced by this
 flag.
+`todayFrom` and `todayTo` are required ISO timestamps that define the
+executor-local calendar day window. LinkMaster uses this window for same-day
+cross-target dedupe to reduce anti-abuse risk from posting one backlink across
+multiple websites from the same IP in a single day.
 Response:
 
 ```json
@@ -163,7 +169,9 @@ that:
 
 - uses HTTP(S) and has a non-root path;
 - is not marked `inaccessible` or `unsubmittable`; and
-- has no normalized `(targetSite, backlinkId)` match in `records.json`.
+- has no normalized `(targetSite, backlinkId)` match in `records.json`; and
+- has no `records.json` entry for the same `backlinkId` whose activity time is
+  within `[todayFrom, todayTo)`, regardless of target website.
 
 When no candidate remains, the endpoint returns `204`.
 
@@ -228,6 +236,9 @@ then:
 Every terminal status is written to `records.json`. Therefore published,
 moderated, rejected, skipped, not-submittable, and failed backlinks are all
 considered processed for that target website and are not selected again.
+Additionally, any terminal record in the client-provided day window
+`[todayFrom, todayTo)` blocks that `backlinkId` from being selected for other
+target websites on the same day.
 `deferred` is excluded by default and only returns when `includeDeferred` is
 true.
 
