@@ -295,6 +295,7 @@ HTML Link
 Markdown Link
 BBCode Link
 UserName Link
+directory
 Unknown
 ```
 
