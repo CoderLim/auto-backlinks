@@ -57,7 +57,7 @@ successful JSON responses whose `apiVersion` is not `1`.
 | `POST` | `/api/automation/results/sync` | Bearer | `200`, saved result array |
 | `POST` | `/api/automation/candidates/next` | Bearer | `200`, candidate context; or `204` |
 | `POST` | `/api/automation/candidates/admit` | Bearer | `200`, admitted backlink |
-| `POST` | `/api/automation/candidates/reject` | Bearer | `200`, `{ id }` removed |
+| `POST` | `/api/automation/candidates/reject` | Bearer | `200`, `{ id }` soft-deleted |
 
 `GET /api/automation/next` and `POST /api/automation/results` remain available
 only for an already-installed extension version. New clients use the routes
@@ -397,7 +397,10 @@ Success:
 }
 ```
 
-Reject removes the staging row only.
+Reject soft-deletes the staging row by setting `deleted_at` (ISO timestamp).
+The row remains in `backlink-candidates.json` for audit; `next` / list skip
+soft-deleted rows. Re-rejecting an already soft-deleted id is idempotent
+success. Admit still physically removes staging after writing `backlinks.json`.
 
 Missing candidate id → `404` `candidate_not_found`. Invalid metadata enums or
 malformed admit/reject bodies → `422`.
